@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard · Bruno Lucarelli · Terceiriza CS</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Ctext x='16' y='21' font-size='12' font-weight='bold' text-anchor='middle' fill='%238b7cf7' font-family='sans-serif'%3ETC%3C/text%3E%3C/svg%3E"><rect width='32' height='32' rx='8' fill='%230f172a'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%238b7cf7'>BL</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%0A%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22white%22/%3E%0A%3Ctext%20x%3D%2216%22%20y%3D%2222%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2214%22%20font-weight%3D%22900%22%20text-anchor%3D%22middle%22%20fill%3D%22%231a1a1a%22%3ETCS%3C/text%3E%0A%3C/svg%3E"><rect width='32' height='32' rx='8' fill='%230f172a'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%238b7cf7'>BL</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root,[data-theme="dark"]{--bg:#0a0e1a;--card:rgba(15,23,42,.65);--border:rgba(255,255,255,.06);--bh:rgba(139,124,247,.2);--shadow:rgba(0,0,0,.3);--t1:#f1f5f9;--t2:#94a3b8;--t3:#475569;--accent:#8b7cf7;--a2:#a78bfa;--teal:#2dd4bf;--green:#34d399;--red:#f87171;--pink:#f472b6;--orange:#fb923c;--gold:#fbbf24;--sky:#38bdf8;--cyan:#22d3ee;--chart-bg:rgba(15,23,42,.4);--track-bg:rgba(255,255,255,.04);--track-fill:rgba(255,255,255,.06);--donut-hole:var(--bg);--login-bg:linear-gradient(135deg,#0a0e1a 0%,#1a1040 50%,#0a0e1a 100%)}
@@ -201,7 +201,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
   <div class="login-box">
-    <img class="login-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj4KPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzhiN2NmNyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6I2E3OGJmYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPgo8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQwIiBmaWxsPSIjMGYxNzJhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iODUiIGZvbnQtc2l6ZT0iNDgiIGZvbnQtd2VpZ2h0PSI5MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9InVybCgjZzEpIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+VGVyY2Vpcml6YTwvdGV4dD4KPHRleHQgeD0iMTAwIiB5PSIxNDAiIGZvbnQtc2l6ZT0iNjQiIGZvbnQtd2VpZ2h0PSI5MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9InVybCgjZzEpIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Q1M8L3RleHQ+Cjwvc3ZnPg==" alt="Terceiriza CS">
+    <img class="login-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj4KICA8IS0tIFRocmVlIHJlY3ljbGluZyBhcnJvd3MgLS0+CiAgPCEtLSBBcmMgMTogdG9wLXJpZ2h0IGdvaW5nIGRvd24gLS0+CiAgPHBhdGggZD0iTSAxNDUsNTUgQSA3NSw3NSAwIDAsMSAxNTgsMTQwIiBmaWxsPSJub25lIiBzdHJva2U9IiMxYTFhMWEiIHN0cm9rZS13aWR0aD0iMTIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTY1LDEzMiAxNDgsMTU4IDE3MiwxNTUiIGZpbGw9IiMxYTFhMWEiLz4KCiAgPCEtLSBBcmMgMjogYm90dG9tIGdvaW5nIGxlZnQgLS0+CiAgPHBhdGggZD0iTSAxNTUsMTU1IEEgNzUsNzUgMCAwLDEgNTAsMTU1IiBmaWxsPSJub25lIiBzdHJva2U9IiMxYTFhMWEiIHN0cm9rZS13aWR0aD0iMTIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTgsMTYyIDM4LDE0MiA0MCwxNjgiIGZpbGw9IiMxYTFhMWEiLz4KCiAgPCEtLSBBcmMgMzogbGVmdCBnb2luZyB1cC1yaWdodCAtLT4KICA8cGF0aCBkPSJNIDQyLDE0OCBBIDc1LDc1IDAgMCwxIDEzNSw0OCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjEyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cG9seWdvbiBwb2ludHM9IjEyOCw0MiAxNTIsNjAgMTQ4LDM1IiBmaWxsPSIjMWExYTFhIi8+CgogIDwhLS0gVENTIHRleHQgLS0+CiAgPHRleHQgeD0iMTAwIiB5PSIxMTUiIGZvbnQtZmFtaWx5PSJBcmlhbCxIZWx2ZXRpY2Esc2Fucy1zZXJpZiIgZm9udC1zaXplPSI1NiIgZm9udC13ZWlnaHQ9IjkwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFhMWExYSIgbGV0dGVyLXNwYWNpbmc9Ii0yIj5UQ1M8L3RleHQ+Cjwvc3ZnPg==" alt="Terceiriza CS">
     <h2>Dashboard Bruno Lucarelli</h2>
     <p>Terceiriza CS · Acesso restrito</p>
     <input type="password" class="login-input" id="pwdInput" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')doLogin()">
@@ -213,7 +213,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div id="mainWrap" style="display:none">
 <div class="header">
 <div class="header-left">
-<img class="hdr-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj4KPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzhiN2NmNyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6I2E3OGJmYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPgo8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQwIiBmaWxsPSIjMGYxNzJhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iODUiIGZvbnQtc2l6ZT0iNDgiIGZvbnQtd2VpZ2h0PSI5MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9InVybCgjZzEpIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+VGVyY2Vpcml6YTwvdGV4dD4KPHRleHQgeD0iMTAwIiB5PSIxNDAiIGZvbnQtc2l6ZT0iNjQiIGZvbnQtd2VpZ2h0PSI5MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9InVybCgjZzEpIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Q1M8L3RleHQ+Cjwvc3ZnPg==" alt="Terceiriza CS">
+<img class="hdr-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj4KICA8IS0tIFRocmVlIHJlY3ljbGluZyBhcnJvd3MgLS0+CiAgPCEtLSBBcmMgMTogdG9wLXJpZ2h0IGdvaW5nIGRvd24gLS0+CiAgPHBhdGggZD0iTSAxNDUsNTUgQSA3NSw3NSAwIDAsMSAxNTgsMTQwIiBmaWxsPSJub25lIiBzdHJva2U9IiMxYTFhMWEiIHN0cm9rZS13aWR0aD0iMTIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTY1LDEzMiAxNDgsMTU4IDE3MiwxNTUiIGZpbGw9IiMxYTFhMWEiLz4KCiAgPCEtLSBBcmMgMjogYm90dG9tIGdvaW5nIGxlZnQgLS0+CiAgPHBhdGggZD0iTSAxNTUsMTU1IEEgNzUsNzUgMCAwLDEgNTAsMTU1IiBmaWxsPSJub25lIiBzdHJva2U9IiMxYTFhMWEiIHN0cm9rZS13aWR0aD0iMTIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTgsMTYyIDM4LDE0MiA0MCwxNjgiIGZpbGw9IiMxYTFhMWEiLz4KCiAgPCEtLSBBcmMgMzogbGVmdCBnb2luZyB1cC1yaWdodCAtLT4KICA8cGF0aCBkPSJNIDQyLDE0OCBBIDc1LDc1IDAgMCwxIDEzNSw0OCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjEyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cG9seWdvbiBwb2ludHM9IjEyOCw0MiAxNTIsNjAgMTQ4LDM1IiBmaWxsPSIjMWExYTFhIi8+CgogIDwhLS0gVENTIHRleHQgLS0+CiAgPHRleHQgeD0iMTAwIiB5PSIxMTUiIGZvbnQtZmFtaWx5PSJBcmlhbCxIZWx2ZXRpY2Esc2Fucy1zZXJpZiIgZm9udC1zaXplPSI1NiIgZm9udC13ZWlnaHQ9IjkwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFhMWExYSIgbGV0dGVyLXNwYWNpbmc9Ii0yIj5UQ1M8L3RleHQ+Cjwvc3ZnPg==" alt="Terceiriza CS">
 <div><h1>Bruno Lucarelli</h1><div class="sub">Mentoria Arrematador · Dashboard Executivo</div></div>
 </div>
 <div class="header-right">
@@ -233,7 +233,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
 <div class="filter-grid">
 <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurma"></div></div>
-<div class="filter-group"><label class="filter-label">Tipo de Acesso</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
+<div class="filter-group"><label class="filter-label">Acesso Plus</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
 <div class="filter-group"><label class="filter-label">Funil Calculado</label><div class="ms-wrap" id="fFunil"></div></div>
 <div class="filter-group"><label class="filter-label">Data da Compra</label><div class="filter-date-row"><input type="date" class="filter-date" id="fDe"><input type="date" class="filter-date" id="fAte"></div></div>
 </div>
@@ -279,13 +279,13 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 const tSet=new Set(),aSet=new Set(),fSet=new Set();
-CS.forEach(r=>{if(r.turma)tSet.add(r.turma);if(r.funilCalc)fSet.add(r.funilCalc);aSet.add(r.acessoPlus?'Plus':'Normal');});
+CS.forEach(r=>{if(r.turma)tSet.add(r.turma);if(r.funilCalc)fSet.add(r.funilCalc);aSet.add(r.acessoPlus?'Acesso Plus':'Acesso Normal');});
 const tOrd=['T7','T8','T9','T10','T12','T14','T15','T16','T17','T18','Ingresso','Mentoria 13','[Ment.Cont.] - Anual'];
 const sT=[...tSet].sort((a,b)=>{const ia=tOrd.indexOf(a),ib=tOrd.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
 const fOrd=['Nunca acessou','Acessou mas não consumiu','Consumiu pouco','Desengajado','Engajado','Recompra','Verificar'];
 buildMS('fTurma',sT);buildMS('fTipoAcesso',[...aSet].sort());buildMS('fFunil',fOrd.filter(f=>fSet.has(f)));
 
-function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length&&!ft.includes(r.turma))return false;if(fa.length){const t=r.acessoPlus?'Plus':'Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length&&!ft.includes(r.turma))return false;if(fa.length){const t=r.acessoPlus?'Acesso Plus':'Acesso Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
   if(!r.dtArremate)return false;
@@ -358,7 +358,7 @@ function renderAll(cs){
   let h='<div class="kpis">';
   h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Total Alunos',fN(total),'','var(--a2)');
   h+=kpi('linear-gradient(90deg,var(--teal),var(--green))','Média Progresso',fP(avgProg),'','var(--teal)');
-  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Já Arremataram',fN(arremataram),total?fP(rd(arremataram/total*100))+' da base':'','var(--green)');
+  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Alunos que Arremataram',fN(arremataram),'únicos · '+fP(rd(arremataram/total*100))+' da base','var(--green)');
   h+=kpi('linear-gradient(90deg,var(--red),var(--pink))','Nunca Acessaram',fN(nunca),fP(pctNunca)+' da base','var(--red)');
   h+='</div>';
 
@@ -478,11 +478,13 @@ function renderAll(cs){
   
   e+='<div class="sec">📅 Semanas e Tarefas</div>';
   
-  // Render semana cards in pairs
-  for(let wi=0;wi<allWeekKeys.length;wi+=2){
+  // Render Semana N + Tarefa N side by side
+  const maxNum=Math.max(allWeekKeys.length,allTaskKeys.length);
+  for(let wi=0;wi<maxNum;wi++){
     e+='<div class="g2">';
-    for(let j=wi;j<Math.min(wi+2,allWeekKeys.length);j++){
-      const wk=allWeekKeys[j];
+    // Semana card
+    if(wi<allWeekKeys.length){
+      const wk=allWeekKeys[wi];
       const num=wk.replace('semana','').padStart(2,'0');
       const wd=sWeeks[wk];
       const wp=wd.total?rd(wd.sim/wd.total*100):0;
@@ -490,18 +492,13 @@ function renderAll(cs){
       e+=donut2('var(--teal)',Math.round(wp/100*360),'var(--red)',fP(wp),'fizeram','Sim',wd.sim,'var(--teal)','Não',(wd.total-wd.sim),'var(--red)');
       e+='</div></div>';
     }
-    e+='</div>';
-  }
-  
-  // Render tarefa cards in pairs
-  for(let ti=0;ti<allTaskKeys.length;ti+=2){
-    e+='<div class="g2">';
-    for(let j=ti;j<Math.min(ti+2,allTaskKeys.length);j++){
-      const tk=allTaskKeys[j];
-      const num=tk.replace('tarefas','').padStart(2,'0');
-      const td2=tWeeks[tk];
+    // Tarefa card (same number)
+    const tKey='tarefas'+(wi<allWeekKeys.length?allWeekKeys[wi].replace('semana',''):(wi+1));
+    if(tWeeks[tKey]){
+      const td2=tWeeks[tKey];
+      const num2=tKey.replace('tarefas','').padStart(2,'0');
       const tp=td2.total?rd(td2.sim/td2.total*100):0;
-      e+='<div class="card"><h3>Tarefas Semana '+num+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram</div><div class="donut-area">';
+      e+='<div class="card"><h3>Tarefas Semana '+num2+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram</div><div class="donut-area">';
       e+=donut2('var(--accent)',Math.round(tp/100*360),'var(--red)',fP(tp),'fizeram','Sim',td2.sim,'var(--accent)','Não',(td2.total-td2.sim),'var(--red)');
       e+='</div></div>';
     }
@@ -562,7 +559,7 @@ function renderAll(cs){
   arrV.forEach(r=>{if(r.valorArrematado>0){tVal+=r.valorArrematado;acV++;}if(r.valorMercado>0)tMerc+=r.valorMercado;});
   const tMed=acV?tVal/acV:0,eco=tMerc?rd((1-tVal/tMerc)*100):0;
   a+='<div class="kpis">';
-  a+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Total Arrematações',fN(tArr),'válidas','var(--a2)');
+  a+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Total de Imóveis Arrematados',fN(tArr),'arrematações válidas','var(--a2)');
   a+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Volume Arrematado',fR(tVal),'','var(--green)');
   a+=kpi('linear-gradient(90deg,var(--gold),var(--orange))','Ticket Médio',fR(tMed),acV+' com valor','var(--gold)');
   a+=kpi('linear-gradient(90deg,var(--teal),var(--cyan))','Economia vs Mercado',fP(eco),'desconto médio','var(--teal)');
@@ -571,16 +568,21 @@ function renderAll(cs){
   // Quantidade por Turma T12-T18 with % of turma
   a+='<div class="sec">🏠 Arrematações por Turma (T12–T18)</div>';
   const arrT={},arrTVal={};
+  const arrTNames={};
   arrV.forEach(r=>{
     let t=r.turma2||('T'+(r.turma||''));
-    // normalize
-    const m=t.match(/T?(\d+)/);if(m)t='T'+m[1];
+    const m2=t.match(/T?(\d+)/);if(m2)t='T'+m2[1];
+    // Count unique names per turma
+    if(!arrTNames[t])arrTNames[t]=new Set();
+    arrTNames[t].add(r.nome);
     arrT[t]=(arrT[t]||0)+1;
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
+  // Use unique counts for turma chart
+  Object.keys(arrTNames).forEach(t=>{arrT[t]=arrTNames[t].size;});
   const showT=['T12','T14','T15','T16','T17','T18'];
   const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const tTotal=turmaC[t]||1;const pct=rd(cnt/tTotal*100);return[t,cnt,pct,turmaC[t]||0];}).filter(([,c])=>c>0);
-  a+='<div class="card"><h3>Quantidade e % por Turma</h3><div class="d">Arrematações válidas + % dos alunos da turma que arremataram</div>';
+  a+='<div class="card"><h3>Quantidade e % por Turma</h3><div class="d">Alunos únicos que arremataram + % da turma</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
   a+='<div class="hbar-area" style="height:auto">';
   arrTItems.forEach(([t,cnt,pct,tt])=>{
