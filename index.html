@@ -353,6 +353,8 @@ function normTurma(r){
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
   if(!normTurma(r))return false;
+  // Excluir GA (Grupo de Arrematadores)
+  if((r.nome||'').toLowerCase().includes('grupo'))return false;
   const si=(r.statusImovel||'').toString().trim();
   if(si==='Inválido'||si==='Cancelado'||si==='Duplicado')return false;
   return true;
@@ -388,7 +390,7 @@ function hbarChart(items, color, totalForPct){
 function renderAll(cs){
   const total=cs.length;
   const funil={},fxProg={},turmaC={};
-  let pv=[],acessou=0,nunca=0,arremataram=0,s01Sim=0,s01T=0,t01Sim=0,t01T=0;
+  let pv=[],acessou=0,nunca=0,arremataram=0,totalImoveis=0,s01Sim=0,s01T=0,t01Sim=0,t01T=0;
   const sWeeks={},tWeeks={};
   let aulasTotais=[],aulasComp=[],diasAcesso=[];
   cs.forEach(r=>{
@@ -400,7 +402,7 @@ function renderAll(cs){
       fxProg[fp]=(fxProg[fp]||0)+1;
     }
     if(r.primAcesso||r.ultAcesso)acessou++;else nunca++;
-    if(r.arrematou&&!r.arrematou.startsWith('Não'))arremataram++;
+    if(r.arrematou&&!r.arrematou.startsWith('Não')){arremataram++;const _qi=String(r.arrematou).match(/(\d+)/);totalImoveis+=_qi?parseInt(_qi[1]):1;}
     if(r.semana1||r.semana01){s01T++;const sv=r.semana1||r.semana01;if(String(sv).startsWith('Sim'))s01Sim++;}
     if(r.tarefa1||r.tarefas01){t01T++;const tv=r.tarefa1||r.tarefas01;if(String(tv)==='Sim')t01Sim++;}
     // Detect all semana/tarefa keys dynamically (handles both "semana1" and "semana01", "tarefa1" and "tarefas01")
@@ -418,7 +420,7 @@ function renderAll(cs){
   let h='<div class="kpis">';
   h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Total Alunos',fN(total),'','var(--a2)');
   h+=kpi('linear-gradient(90deg,var(--teal),var(--green))','Média Progresso',fP(avgProg),'','var(--teal)');
-  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Alunos que Arremataram',fN(arremataram),'únicos · '+fP(rd(arremataram/total*100))+' da base','var(--green)');
+  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Imóveis Arrematados (CS)',fN(totalImoveis),fN(arremataram)+' alunos · '+fP(rd(arremataram/total*100))+' da base','var(--green)');
   h+=kpi('linear-gradient(90deg,var(--red),var(--pink))','Nunca Acessaram',fN(nunca),fP(pctNunca)+' da base','var(--red)');
   h+='</div>';
 
@@ -433,11 +435,11 @@ function renderAll(cs){
   fOrd.forEach((f,i)=>{const q=fd[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBg[i]+';color:'+fColors[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColors[i]+'"></div></div></div>';});
   h+='</div></div>';
 
-  // Comparativo por Turma — mostra todas as turmas detectadas
-  const compTurmas=Object.keys(turmaC).sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
+  // Comparativo por Turma — T12 a T18 apenas
+  const compTurmas=['T12','T13','T14','T15','T16','T17','T18'];
   const compData=compTurmas.map(t=>([t,turmaC[t]||0])).filter(([,v])=>v>0);
   if(compData.length){
-    h+='<div class="sec">👥 Comparativo por Turma</div><div class="card"><h3>Alunos por Turma</h3><div class="d">Distribuição normalizada</div><div class="hbar-area" style="height:auto">';
+    h+='<div class="sec">👥 Comparativo por Turma (T12–T18)</div><div class="card"><h3>Alunos por Turma</h3><div class="d">T12 a T18</div><div class="hbar-area" style="height:auto">';
     h+=hbarChart(compData,'var(--accent)',total);
     h+='</div></div>';
   }
@@ -626,14 +628,18 @@ function renderAll(cs){
   a+=kpi('linear-gradient(90deg,var(--teal),var(--cyan))','Economia vs Mercado',fP(eco),'desconto médio','var(--teal)');
   a+='</div>';
 
-  // Quantidade por Turma com turma normalizada
-  a+='<div class="sec">🏠 Arrematações por Turma</div>';
-  const arrT={},arrTVal={};
-  // Use CS arrematou field (same racional as Visão Geral) for unique student count
+  // Quantidade de IMÓVEIS por Turma (soma do campo CS "Arrematou X imóveis")
+  a+='<div class="sec">🏠 Arrematações por Turma (T12–T18)</div>';
+  const arrT={},arrTAlunos={},arrTVal={};
+  // Somar imóveis do CS arrematou field (mesmo racional da Visão Geral)
   cs.forEach(r=>{
     if(r.arrematou&&!r.arrematou.startsWith('Não')){
       const nt=normTurmaStr(r.turma);
-      if(nt)arrT[nt]=(arrT[nt]||0)+1;
+      if(!nt)return;
+      const qi=String(r.arrematou).match(/(\d+)/);
+      const imov=qi?parseInt(qi[1]):1;
+      arrT[nt]=(arrT[nt]||0)+imov;
+      arrTAlunos[nt]=(arrTAlunos[nt]||0)+1;
     }
   });
   // Use arrematacao data for financial values
@@ -641,14 +647,14 @@ function renderAll(cs){
     let t=normTurma(r);if(!t)return;
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
-  const showT=Object.keys(arrT).sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
-  const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const tTotal=turmaC[t]||1;const pct=rd(cnt/tTotal*100);return[t,cnt,pct,turmaC[t]||0];}).filter(([,c])=>c>0);
-  a+='<div class="card"><h3>Quantidade e % por Turma</h3><div class="d">Alunos que arremataram (mesmo racional da Visão Geral)</div>';
+  const showT=['T12','T13','T14','T15','T16','T17','T18'].filter(t=>arrT[t]>0);
+  const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const alunos=arrTAlunos[t]||0;const tTotal=turmaC[t]||1;const pct=rd(cnt/tTotal*100);return[t,cnt,pct,turmaC[t]||0,alunos];});
+  a+='<div class="card"><h3>Imóveis Arrematados por Turma</h3><div class="d">Total de imóveis (campo CS Arrematou) — mesmo racional da Visão Geral</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
   a+='<div class="hbar-area" style="height:auto">';
-  arrTItems.forEach(([t,cnt,pct,tt])=>{
+  arrTItems.forEach(([t,cnt,pct,tt,alunos])=>{
     const w=Math.max(Math.round(cnt/mxAT*100),3);
-    a+='<div class="hbar-row"><span class="hbar-lbl" style="min-width:50px;font-weight:700">'+t+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' arrematações</div></div><span class="hbar-pct">'+fP(pct)+' de '+fN(tt)+'</span></div>';
+    a+='<div class="hbar-row" data-hlbl="'+t+'" data-hcnt="'+fN(cnt)+' imóveis ('+fN(alunos)+' alunos)" data-hpct="'+fP(pct)+' de '+fN(tt)+' alunos na turma" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:50px;font-weight:700">'+t+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' imóveis</div></div><span class="hbar-pct">'+fN(alunos)+' alunos · '+fP(pct)+'</span></div>';
   });
   a+='</div></div>';
 
