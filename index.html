@@ -266,11 +266,16 @@ async function loadData(){
     if(D.error)throw new Error(D.error);
     CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;NOW=D.todayMs;
     
-    // Build filters
+    // Build filters — normalizar turma para TXX
     const tSet=new Set(),aSet=new Set(),fSet=new Set();
-    CS.forEach(r=>{if(r.turma)tSet.add(r.turma);if(r.funilCalc)fSet.add(r.funilCalc);aSet.add(r.acessoPlus?'Acesso Plus':'Acesso Normal');});
-    const tOrd=['T7','T8','T9','T10','T12','T14','T15','T16','T17','T18','Ingresso','Mentoria 13','[Ment.Cont.] - Anual'];
-    const sT=[...tSet].sort((a,b)=>{const ia=tOrd.indexOf(a),ib=tOrd.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+    CS.forEach(r=>{
+      const nt=normTurmaStr(r.turma);
+      if(nt)tSet.add(nt);
+      if(r.funilCalc)fSet.add(r.funilCalc);
+      aSet.add(r.acessoPlus?'Acesso Plus':'Acesso Normal');
+    });
+    const tOrd=['T7','T8','T9','T10','T12','T13','T14','T15','T16','T17','T18'];
+    const sT=[...tSet].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
     buildMS('fTurma',sT);buildMS('fTipoAcesso',[...aSet].sort());buildMS('fFunil',fOrd.filter(f=>fSet.has(f)));
     
     renderAll(CS);
@@ -312,22 +317,41 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 
-function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length&&!ft.includes(r.turma))return false;if(fa.length){const t=r.acessoPlus?'Acesso Plus':'Acesso Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
-// Normaliza turma: "T17 e outros" -> "T17", "17" -> "T17", telefones -> null
-function normTurma(r){
-  const t2=String(r.turma2||'').trim();
-  const t=String(r.turma||'').trim();
-  // Tentar turma2 primeiro — regra: se começa com T + dígitos, pega só TXX
-  let m=t2.match(/^T(\d{1,2})/);
-  if(m)return 'T'+m[1];
-  // Tentar turma (campo numérico) — só aceita 1-2 dígitos puros
-  m=t.match(/^(\d{1,2})$/);
-  if(m)return 'T'+m[1];
+function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const t=r.acessoPlus?'Acesso Plus':'Acesso Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+// Normaliza qualquer formato de turma para "T7", "T17", etc.
+// Exemplos:
+//   "Mentoria T17 Orderbump T18 a T21" -> "T17"
+//   "Turma17" / "Turma 07" -> "T17" / "T7"
+//   "17" -> "T17"
+//   "T17" -> "T17"
+//   "[Ment.Cont.] - Anual" -> null
+//   "16172450468" (telefone) -> null
+function normTurmaStr(s){
+  if(!s)return null;
+  s=String(s).trim();
+  if(!s)return null;
+  // Telefones: 8+ dígitos puros -> null
+  if(/^\d{8,}$/.test(s))return null;
+  // "Turma" seguido de opcional espaço e dígitos
+  var m=s.match(/Turma\s*0*(\d{1,2})/i);
+  if(m)return 'T'+parseInt(m[1]);
+  // "T" seguido de dígitos (word boundary) — ex: "Mentoria T17 Orderbump..."
+  m=s.match(/\bT0*(\d{1,2})\b/);
+  if(m)return 'T'+parseInt(m[1]);
+  // "Mentoria" seguido de espaço e dígitos (sem T) — ex: "Mentoria 13"
+  m=s.match(/Mentoria\s+0*(\d{1,2})\b/);
+  if(m)return 'T'+parseInt(m[1]);
+  // Só 1-2 dígitos puros — ex: "17", "05"
+  m=s.match(/^0*(\d{1,2})$/);
+  if(m)return 'T'+parseInt(m[1]);
   return null;
+}
+// Para arrematação: tenta turma2 (formulário) primeiro, depois turma (manual)
+function normTurma(r){
+  return normTurmaStr(r.turma2)||normTurmaStr(r.turma);
 }
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
-  if(!r.dtArremate)return false;
   if(!normTurma(r))return false;
   const si=(r.statusImovel||'').toString().trim();
   if(si==='Inválido'||si==='Cancelado'||si==='Duplicado')return false;
@@ -369,7 +393,7 @@ function renderAll(cs){
   let aulasTotais=[],aulasComp=[],diasAcesso=[];
   cs.forEach(r=>{
     if(r.funilCalc)funil[r.funilCalc]=(funil[r.funilCalc]||0)+1;
-    if(r.turma)turmaC[r.turma]=(turmaC[r.turma]||0)+1;
+    const _nt=normTurmaStr(r.turma);if(_nt)turmaC[_nt]=(turmaC[_nt]||0)+1;
     if(r.progresso!=null){
       pv.push(r.progresso);
       const p=r.progresso,fp=p===0?'0':p<=10?'1-10':p<=20?'11-20':p<=30?'21-30':p<=40?'31-40':p<=50?'41-50':p<=60?'51-60':p<=70?'61-70':p<=80?'71-80':p<=90?'81-90':'91-100';
@@ -377,12 +401,12 @@ function renderAll(cs){
     }
     if(r.primAcesso||r.ultAcesso)acessou++;else nunca++;
     if(r.arrematou&&!r.arrematou.startsWith('Não'))arremataram++;
-    if(r.semana01){s01T++;if(r.semana01.startsWith('Sim'))s01Sim++;}
-    if(r.tarefas01){t01T++;if(r.tarefas01==='Sim')t01Sim++;}
-    // Detect all semana/tarefa keys dynamically
+    if(r.semana1||r.semana01){s01T++;const sv=r.semana1||r.semana01;if(String(sv).startsWith('Sim'))s01Sim++;}
+    if(r.tarefa1||r.tarefas01){t01T++;const tv=r.tarefa1||r.tarefas01;if(String(tv)==='Sim')t01Sim++;}
+    // Detect all semana/tarefa keys dynamically (handles both "semana1" and "semana01", "tarefa1" and "tarefas01")
     Object.keys(r).forEach(key=>{
-      if(key.match(/^semana\d+$/)){if(!sWeeks[key])sWeeks[key]={sim:0,total:0};if(r[key]){sWeeks[key].total++;if(String(r[key]).startsWith('Sim'))sWeeks[key].sim++;}}
-      if(key.match(/^tarefas\d+$/)){if(!tWeeks[key])tWeeks[key]={sim:0,total:0};if(r[key]){tWeeks[key].total++;if(r[key]==='Sim')tWeeks[key].sim++;}}
+      if(key.match(/^semana\d+$/)){const nk='s'+parseInt(key.replace('semana',''));if(!sWeeks[nk])sWeeks[nk]={sim:0,total:0};if(r[key]){sWeeks[nk].total++;if(String(r[key]).startsWith('Sim'))sWeeks[nk].sim++;}}
+      if(key.match(/^tarefas?\d+$/)){const nk='t'+parseInt(key.replace(/^tarefas?/,''));if(!tWeeks[nk])tWeeks[nk]={sim:0,total:0};if(r[key]){tWeeks[nk].total++;if(String(r[key])==='Sim')tWeeks[nk].sim++;}}
     });
     if(r.totalAulas>0)aulasTotais.push(r.totalAulas);
     if(r.aulasCompletas!=null)aulasComp.push(r.aulasCompletas);
@@ -409,11 +433,11 @@ function renderAll(cs){
   fOrd.forEach((f,i)=>{const q=fd[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBg[i]+';color:'+fColors[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColors[i]+'"></div></div></div>';});
   h+='</div></div>';
 
-  // Comparativo por Turma (T14-T18 + Ment.Cont.)
-  const compTurmas=['T14','T15','T16','T17','T18','[Ment.Cont.] - Anual'];
+  // Comparativo por Turma — mostra todas as turmas detectadas
+  const compTurmas=Object.keys(turmaC).sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
   const compData=compTurmas.map(t=>([t,turmaC[t]||0])).filter(([,v])=>v>0);
   if(compData.length){
-    h+='<div class="sec">👥 Comparativo por Turma</div><div class="card"><h3>Alunos por Turma</h3><div class="d">T14 a T18 + Mentoria Contínua</div><div class="hbar-area" style="height:auto">';
+    h+='<div class="sec">👥 Comparativo por Turma</div><div class="card"><h3>Alunos por Turma</h3><div class="d">Distribuição normalizada</div><div class="hbar-area" style="height:auto">';
     h+=hbarChart(compData,'var(--accent)',total);
     h+='</div></div>';
   }
@@ -421,7 +445,7 @@ function renderAll(cs){
   // Checkin
   const ft=getMS('fTurma');
   let ckF=CK;
-  if(ft.length)ckF=CK.filter(r=>{if(!r.turma)return false;const m=String(r.turma).match(/^T?0*(\d{1,2})/);const tn=m?'T'+m[1]:r.turma;return ft.includes(tn);});
+  if(ft.length)ckF=CK.filter(r=>{const nt=normTurmaStr(r.turma);return nt&&ft.includes(nt);});
   if(ckF.length){
     const ckTotal=ckF.length;
     h+='<div class="sec">🎯 Perfil dos Alunos (Check-in · '+fN(ckTotal)+' respostas)</div>';
@@ -432,8 +456,8 @@ function renderAll(cs){
       if(r.comoConheceu){const c=r.comoConheceu.length>30?r.comoConheceu.substring(0,30)+'...':r.comoConheceu;como[c]=(como[c]||0)+1;}
       if(r.renda)renda[r.renda]=(renda[r.renda]||0)+1;
       if(r.valorDisponivel)vDisp[r.valorDisponivel]=(vDisp[r.valorDisponivel]||0)+1;
-      if(r.jaArrematou!=null){const v=String(r.jaArrematou);const k=v==='Não'||v==='0'?'Não':v==='Sim'||v==='1'?'Sim (1)':v.startsWith('Sim')?v:v;jaArr[k]=(jaArr[k]||0)+1;}
-      if(r.objetivoAprendizado){const o=r.objetivoAprendizado.length>40?r.objetivoAprendizado.substring(0,40)+'...':r.objetivoAprendizado;objApr[o]=(objApr[o]||0)+1;}
+      if(r.jaArrematou!=null){const v=String(r.jaArrematou).trim();if(v&&v!=='#N/A'&&v!=='Masculino'&&v!=='Feminino'){const k=v==='Não'||v==='0'?'Não':v==='1'?'Sim (1x)':!isNaN(v)?'Sim ('+v+'x)':v;jaArr[k]=(jaArr[k]||0)+1;}}
+      if(r.objetivoAprendizado||r.objAprendizado){const raw=r.objetivoAprendizado||r.objAprendizado;const o=raw.length>40?raw.substring(0,40)+'...':raw;objApr[o]=(objApr[o]||0)+1;}
       if(r.decisivo){const d=r.decisivo.length>40?r.decisivo.substring(0,40)+'...':r.decisivo;decisivo[d]=(decisivo[d]||0)+1;}
     });
 
@@ -508,37 +532,38 @@ function renderAll(cs){
 
   // Semana 01 + Tarefas
   const pctS=s01T?rd(s01Sim/s01T*100):0,pctT=t01T?rd(t01Sim/t01T*100):0;
-  // Dynamic semana/tarefa rendering
-  const allWeekKeys=Object.keys(sWeeks).sort((a,b)=>{const na=parseInt(a.replace('semana','')),nb=parseInt(b.replace('semana',''));return na-nb;});
-  const allTaskKeys=Object.keys(tWeeks).sort((a,b)=>{const na=parseInt(a.replace('tarefas','')),nb=parseInt(b.replace('tarefas',''));return na-nb;});
-  
-  e+='<div class="sec">📅 Semanas e Tarefas</div>';
-  
-  // Render Semana N + Tarefa N side by side
-  const maxNum=Math.max(allWeekKeys.length,allTaskKeys.length);
-  for(let wi=0;wi<maxNum;wi++){
-    e+='<div class="g2">';
-    // Semana card
-    if(wi<allWeekKeys.length){
-      const wk=allWeekKeys[wi];
-      const num=wk.replace('semana','').padStart(2,'0');
-      const wd=sWeeks[wk];
-      const wp=wd.total?rd(wd.sim/wd.total*100):0;
-      e+='<div class="card"><h3>Semana '+num+'</h3><div class="d">'+wd.sim+' de '+wd.total+' fizeram</div><div class="donut-area">';
-      e+=donut2('var(--teal)',Math.round(wp/100*360),'var(--red)',fP(wp),'fizeram','Sim',wd.sim,'var(--teal)','Não',(wd.total-wd.sim),'var(--red)');
-      e+='</div></div>';
-    }
-    // Tarefa card (same number)
-    const tKey='tarefas'+(wi<allWeekKeys.length?allWeekKeys[wi].replace('semana',''):(wi+1));
-    if(tWeeks[tKey]){
-      const td2=tWeeks[tKey];
-      const num2=tKey.replace('tarefas','').padStart(2,'0');
-      const tp=td2.total?rd(td2.sim/td2.total*100):0;
-      e+='<div class="card"><h3>Tarefas Semana '+num2+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram</div><div class="donut-area">';
-      e+=donut2('var(--accent)',Math.round(tp/100*360),'var(--red)',fP(tp),'fizeram','Sim',td2.sim,'var(--accent)','Não',(td2.total-td2.sim),'var(--red)');
-      e+='</div></div>';
-    }
-    e+='</div>';
+  // Dynamic semana/tarefa rendering (keys are "s1","s2", "t1","t2")
+  const allWeekNums=Object.keys(sWeeks).map(k=>parseInt(k.replace('s',''))).sort((a,b)=>a-b);
+  const allTaskNums=Object.keys(tWeeks).map(k=>parseInt(k.replace('t',''))).sort((a,b)=>a-b);
+  const allNums=[...new Set([...allWeekNums,...allTaskNums])].sort((a,b)=>a-b);
+
+  if(allNums.length){
+    e+='<div class="sec">📅 Semanas e Tarefas</div>';
+
+    // Render Semana N + Tarefa N side by side
+    allNums.forEach(n=>{
+      e+='<div class="g2">';
+      const num=String(n).padStart(2,'0');
+      // Semana card
+      const sk='s'+n;
+      if(sWeeks[sk]){
+        const wd=sWeeks[sk];
+        const wp=wd.total?rd(wd.sim/wd.total*100):0;
+        e+='<div class="card"><h3>Semana '+num+'</h3><div class="d">'+wd.sim+' de '+wd.total+' fizeram</div><div class="donut-area">';
+        e+=donut2('var(--teal)',Math.round(wp/100*360),'var(--red)',fP(wp),'fizeram','Sim',wd.sim,'var(--teal)','Não',(wd.total-wd.sim),'var(--red)');
+        e+='</div></div>';
+      }
+      // Tarefa card (same number)
+      const tk='t'+n;
+      if(tWeeks[tk]){
+        const td2=tWeeks[tk];
+        const tp=td2.total?rd(td2.sim/td2.total*100):0;
+        e+='<div class="card"><h3>Tarefas Semana '+num+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram</div><div class="donut-area">';
+        e+=donut2('var(--accent)',Math.round(tp/100*360),'var(--red)',fP(tp),'fizeram','Sim',td2.sim,'var(--accent)','Não',(td2.total-td2.sim),'var(--red)');
+        e+='</div></div>';
+      }
+      e+='</div>';
+    });
   }
 
   // Progresso
@@ -601,21 +626,22 @@ function renderAll(cs){
   a+=kpi('linear-gradient(90deg,var(--teal),var(--cyan))','Economia vs Mercado',fP(eco),'desconto médio','var(--teal)');
   a+='</div>';
 
-  // Quantidade por Turma T12-T18 with % of turma
-  a+='<div class="sec">🏠 Arrematações por Turma (T12–T18)</div>';
+  // Quantidade por Turma com turma normalizada
+  a+='<div class="sec">🏠 Arrematações por Turma</div>';
   const arrT={},arrTVal={};
-  // Use CS arrematou field (same logic as Visão Geral) for unique student count
+  // Use CS arrematou field (same racional as Visão Geral) for unique student count
   cs.forEach(r=>{
-    if(r.arrematou&&!r.arrematou.startsWith('Não')&&r.turma){
-      arrT[r.turma]=(arrT[r.turma]||0)+1;
+    if(r.arrematou&&!r.arrematou.startsWith('Não')){
+      const nt=normTurmaStr(r.turma);
+      if(nt)arrT[nt]=(arrT[nt]||0)+1;
     }
   });
-  // Use arrematacao data only for financial values
+  // Use arrematacao data for financial values
   arrV.forEach(r=>{
     let t=normTurma(r);if(!t)return;
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
-  const showT=['T12','T14','T15','T16','T17','T18'];
+  const showT=Object.keys(arrT).sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
   const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const tTotal=turmaC[t]||1;const pct=rd(cnt/tTotal*100);return[t,cnt,pct,turmaC[t]||0];}).filter(([,c])=>c>0);
   a+='<div class="card"><h3>Quantidade e % por Turma</h3><div class="d">Alunos que arremataram (mesmo racional da Visão Geral)</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
