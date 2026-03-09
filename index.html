@@ -254,6 +254,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <script>
 
 const PWD='Brunolucarelli123';
+const fOrd=['Nunca acessou','Acessou mas não consumiu','Consumiu pouco','Desengajado','Engajado','Recompra','Verificar'];
 function doLogin(){const v=document.getElementById('pwdInput').value;if(v===PWD){document.getElementById('loginScreen').style.display='none';document.getElementById('loadingOverlay').style.display='flex';loadData();}else{document.getElementById('pwdError').style.display='block';}}
 
 const API_URL='https://script.google.com/macros/s/AKfycby9G0502p4MgiAdLN1KlJiBxZTzJk0be-Z7SkichhUOehJMEpyEVKYXW4ZKNvvmzKaC/exec';
