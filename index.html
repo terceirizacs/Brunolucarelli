@@ -313,18 +313,27 @@ document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.
 
 
 function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length&&!ft.includes(r.turma))return false;if(fa.length){const t=r.acessoPlus?'Acesso Plus':'Acesso Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+// Normaliza turma: "T17 e outros" -> "T17", "17" -> "T17", telefones -> null
+function normTurma(r){
+  const t2=String(r.turma2||'').trim();
+  const t=String(r.turma||'').trim();
+  // Tentar turma2 primeiro — regra: se começa com T + dígitos, pega só TXX
+  let m=t2.match(/^T(\d{1,2})/);
+  if(m)return 'T'+m[1];
+  // Tentar turma (campo numérico) — só aceita 1-2 dígitos puros
+  m=t.match(/^(\d{1,2})$/);
+  if(m)return 'T'+m[1];
+  return null;
+}
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
   if(!r.dtArremate)return false;
-  // Filter invalid turma entries (phone numbers, null)
-  const t=r.turma2||('T'+(r.turma||''));
-  if(!t||!t.match(/^T\d{1,2}$/))return false;
-  // Filter invalid statusImovel
+  if(!normTurma(r))return false;
   const si=(r.statusImovel||'').toString().trim();
   if(si==='Inválido'||si==='Cancelado'||si==='Duplicado')return false;
   return true;
 });
-if(ft.length)rows=rows.filter(r=>{const t=r.turma2||('T'+(r.turma||''));return ft.includes(t);});
+if(ft.length)rows=rows.filter(r=>ft.includes(normTurma(r)));
 return rows;}
 
 function applyFilters(){const rows=getFC(),tags=[];getMS('fTurma').forEach(v=>tags.push(v));getMS('fTipoAcesso').forEach(v=>tags.push(v));getMS('fFunil').forEach(v=>tags.push(v));if(document.getElementById('fDe').value)tags.push('De: '+document.getElementById('fDe').value);if(document.getElementById('fAte').value)tags.push('Até: '+document.getElementById('fAte').value);const a=document.getElementById('tagsArea');a.innerHTML=tags.length?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>':'<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(rows);}
@@ -412,7 +421,7 @@ function renderAll(cs){
   // Checkin
   const ft=getMS('fTurma');
   let ckF=CK;
-  if(ft.length)ckF=CK.filter(r=>r.turma&&ft.some(f=>{const tn='T'+r.turma.replace(/\D/g,'').replace(/^0+/,'');return tn===f||r.turma===f;}));
+  if(ft.length)ckF=CK.filter(r=>{if(!r.turma)return false;const m=String(r.turma).match(/^T?0*(\d{1,2})/);const tn=m?'T'+m[1]:r.turma;return ft.includes(tn);});
   if(ckF.length){
     const ckTotal=ckF.length;
     h+='<div class="sec">🎯 Perfil dos Alunos (Check-in · '+fN(ckTotal)+' respostas)</div>';
@@ -603,8 +612,7 @@ function renderAll(cs){
   });
   // Use arrematacao data only for financial values
   arrV.forEach(r=>{
-    let t=r.turma2||('T'+(r.turma||''));
-    const m2=t.match(/T?(\d+)/);if(m2)t='T'+m2[1];
+    let t=normTurma(r);if(!t)return;
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
   const showT=['T12','T14','T15','T16','T17','T18'];
