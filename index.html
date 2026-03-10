@@ -619,10 +619,10 @@ function renderAll(cs){
   // Dias sem acesso
   e+='<div class="sec">👁️ Análise de Acesso</div><div class="g2">';
   const fxD={};let nuncaAcessouCount=0;
-  cs.forEach(r=>{if(r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}}else{nuncaAcessouCount++;}});
+  cs.forEach(r=>{const acessouAlguma=r.primAcesso||r.ultAcesso;if(acessouAlguma&&r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}else{fxD['0-14 dias']=(fxD['0-14 dias']||0)+1;}}else if(acessouAlguma&&!r.ultAcesso){fxD['0-14 dias']=(fxD['0-14 dias']||0)+1;}else{nuncaAcessouCount++;}});
   const dItems=[['0-14 dias',fxD['0-14 dias']||0],['15-30 dias',fxD['15-30 dias']||0],['31-60 dias',fxD['31-60 dias']||0],['>60 dias',fxD['>60 dias']||0],['Nunca acessou',nuncaAcessouCount]];
   const dT=dItems.reduce((s,[,v])=>s+v,0);
-  e+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde último acesso ('+fN(dT)+' de '+fN(total)+' alunos)</div><div class="hbar-area" style="height:auto">';
+  e+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde último acesso</div><div class="hbar-area" style="height:auto">';
   const dCols=['var(--green)','var(--gold)','var(--orange)','var(--red)','var(--pink)'];
   dItems.forEach(([l,c],i)=>{const w=dT?Math.max(Math.round(c/Math.max(...dItems.map(x=>x[1]))*100),3):0;const p=dT?fP(rd(c/dT*100)):'';const safe=l.replace(/'/g,'');e+='<div class="hbar-row" data-hlbl="'+safe+'" data-hcnt="'+fN(c)+'" data-hpct="'+p+'" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:90px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+dCols[i]+'">'+fN(c)+'</div></div><span class="hbar-pct">'+p+'</span></div>';});
   e+='</div></div>';
@@ -641,39 +641,59 @@ function renderAll(cs){
   e+='<div style="width:100%;max-width:500px;height:24px;background:var(--track-bg);border-radius:12px;overflow:hidden"><div style="height:100%;width:'+pctAulas+'%;background:linear-gradient(90deg,var(--accent),var(--a2));border-radius:12px;transition:width .6s"></div></div>';
   e+='</div></div></div>';
 
-  // Ao Vivo (Zoom)
+  // Ao Vivo (Zoom) — agrupado por DATA, participantes únicos por email
   const ftAV=getMS('fTurma');
   let avF=AV;
   if(ftAV.length)avF=AV.filter(r=>r.turma&&ftAV.includes(r.turma));
   if(avF.length){
-    // Agrupar por sessão (data+tópico)
+    const avMeses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const avDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+    // Agrupar por DATA (não turma) — participantes únicos por email
     const sessoes={};
     avF.forEach(r=>{
-      const k=r.dtInicio+'|'+r.topico;
-      if(!sessoes[k])sessoes[k]={topico:r.topico,turma:r.turma,data:r.dtInicio,participantes:[],totalHeader:r.totalParticipantes};
-      if(!r.nomeParticipante.includes('Host')&&!r.nomeParticipante.includes('Broadcast'))sessoes[k].participantes.push(r);
+      if(!r.nomeParticipante||r.nomeParticipante.includes('Host')||r.nomeParticipante.includes('Broadcast'))return;
+      // dtInicio é timestamp
+      const dt=r.dtInicio?new Date(r.dtInicio):null;
+      if(!dt)return;
+      const k=dt.toISOString().substring(0,10); // YYYY-MM-DD
+      if(!sessoes[k])sessoes[k]={data:dt,emails:new Set(),turmas:{},duracoes:[]};
+      // Participante único por email
+      const em=(r.emailParticipante||'').toLowerCase();
+      if(em&&!sessoes[k].emails.has(em)){
+        sessoes[k].emails.add(em);
+        if(r.turma){if(!sessoes[k].turmas[r.turma])sessoes[k].turmas[r.turma]=new Set();sessoes[k].turmas[r.turma].add(em);}
+      }
+      if(r.duracao>0)sessoes[k].duracoes.push(r.duracao);
     });
-    const sessKeys=Object.keys(sessoes).sort();
-    e+='<div class="sec">📹 Participação Ao Vivo (Zoom)</div>';
-    e+='<div class="month-grid">';
-    sessKeys.forEach(k=>{
-      const s=sessoes[k];
-      const nP=s.participantes.length;
-      const duracoes=s.participantes.filter(p=>p.duracao>0).map(p=>p.duracao);
-      const avgDur=duracoes.length?rd(duracoes.reduce((a,b)=>a+b,0)/duracoes.length):0;
-      const dtParts=s.data.split('-');const dtLabel=dtParts[2]+'/'+dtParts[1]+'/'+dtParts[0];
-      e+='<div class="month-card" onmouseenter="showTip(event,\'<div class=tt-title>'+s.turma+' - '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duração média:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+s.turma+' - '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duração média:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmouseleave="hideTip()"><div class="month-name">'+s.turma+' · '+dtLabel+'</div><div class="month-val">'+fN(nP)+'</div><div style="font-size:12px;color:var(--t3)">participantes</div><div class="month-avg">Duração média: '+avgDur.toFixed(0)+' min</div></div>';
-    });
-    e+='</div>';
-    // Summary
-    const totalSessoes=sessKeys.length;
-    const allParts=sessKeys.reduce((s,k)=>s+sessoes[k].participantes.length,0);
-    const avgParts=totalSessoes?rd(allParts/totalSessoes):0;
-    e+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
-    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total Sessões</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+totalSessoes+'</div></div>';
-    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total Participações</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+fN(allParts)+'</div></div>';
-    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Média por Sessão</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--gold)">'+avgParts.toFixed(0)+'</div></div>';
-    e+='</div>';
+    // Filtrar sessões com 0 participantes
+    const sessKeys=Object.keys(sessoes).filter(k=>sessoes[k].emails.size>0).sort();
+    if(sessKeys.length){
+      e+='<div class="sec">📹 Participação Ao Vivo (Zoom)</div>';
+      e+='<div class="month-grid">';
+      sessKeys.forEach(k=>{
+        const s=sessoes[k];
+        const nP=s.emails.size;
+        const avgDur=s.duracoes.length?rd(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
+        const dt=s.data;
+        const dtLabel=String(dt.getDate()).padStart(2,'0')+' de '+avMeses[dt.getMonth()]+' de '+dt.getFullYear();
+        const diaSemana=avDias[dt.getDay()];
+        // Breakdown por turma
+        let turmaInfo='';
+        const turmaKeys=Object.keys(s.turmas).sort();
+        turmaKeys.forEach(t=>{const cnt=s.turmas[t].size;if(cnt>0)turmaInfo+='<div style="font-size:11px;color:var(--t3);margin-top:2px">'+t+': '+cnt+' participantes</div>';});
+        e+='<div class="month-card" onmouseenter="showTip(event,\'<div class=tt-title>'+diaSemana+', '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes unicos:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duracao media:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+diaSemana+', '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes unicos:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duracao media:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmouseleave="hideTip()"><div class="month-name">'+diaSemana+', '+dtLabel+'</div><div class="month-val">'+fN(nP)+'</div><div style="font-size:12px;color:var(--t3)">participantes únicos</div><div class="month-avg">Duração média: '+avgDur.toFixed(0)+' min</div>'+turmaInfo+'</div>';
+      });
+      e+='</div>';
+      // Resumo
+      const totalSessoes=sessKeys.length;
+      const allParts=sessKeys.reduce((s,k)=>s+sessoes[k].emails.size,0);
+      const avgParts=totalSessoes?rd(allParts/totalSessoes):0;
+      e+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
+      e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total de Sessões</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+totalSessoes+'</div></div>';
+      e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total de Participantes Únicos</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+fN(allParts)+'</div></div>';
+      e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Média por Sessão</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--gold)">'+avgParts.toFixed(0)+'</div></div>';
+      e+='</div>';
+    }
   }
 
   // Insights
@@ -832,17 +852,25 @@ function renderDetalhamento(cs){
   _detPage=0;_detSearch='';
   drawDetTable();
 }
-function drawDetTable(){
+function drawDetTable(fromSearch){
   let data=_detData;
   if(_detSearch){const s=_detSearch.toLowerCase();data=data.filter(r=>r.nome.toLowerCase().includes(s)||r.turma.toLowerCase().includes(s));}
   data.sort((a,b)=>{let va=a[_detSort],vb=b[_detSort];if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va==null)va='';if(vb==null)vb='';return va<vb?-_detDir:va>vb?_detDir:0;});
   const totalR=data.length;const totalPages=Math.ceil(totalR/_detPerPage);
   if(_detPage>=totalPages)_detPage=Math.max(0,totalPages-1);
   const start=_detPage*_detPerPage;const slice=data.slice(start,start+_detPerPage);
-  let d='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
-  d+='<input class="det-search" placeholder="Buscar aluno..." value="'+_detSearch+'" oninput="_detSearch=this.value;_detPage=0;drawDetTable()">';
-  d+='<span style="color:var(--t3);font-size:13px">'+fN(totalR)+' aluno(s)</span></div>';
-  d+='<div style="overflow-x:auto"><table class="det-table"><thead><tr>';
+  // Search bar — only rebuild if not coming from search input (to keep focus)
+  const cDet=document.getElementById('cDet');
+  if(!fromSearch||!cDet.querySelector('.det-search')){
+    let top='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
+    top+='<input class="det-search" placeholder="Buscar aluno..." value="'+_detSearch+'" oninput="_detSearch=this.value;_detPage=0;drawDetTable(true)">';
+    top+='<span class="det-count" style="color:var(--t3);font-size:13px">'+fN(totalR)+' aluno(s)</span></div>';
+    top+='<div id="detTableArea"></div>';
+    cDet.innerHTML=top;
+  } else {
+    const countEl=cDet.querySelector('.det-count');if(countEl)countEl.textContent=fN(totalR)+' aluno(s)';
+  }
+  let d='<div style="overflow-x:auto"><table class="det-table"><thead><tr>';
   const colDefs=[
     {key:'nome',label:'ALUNO'},
     {key:'turma',label:'TURMA'},
@@ -884,9 +912,9 @@ function drawDetTable(){
     if(_detPage<totalPages-1)d+='<button onclick="detPage('+(_detPage+1)+')">›</button><button onclick="detPage('+(totalPages-1)+')">»</button>';
     d+='</div>';
   }
-  document.getElementById('cDet').innerHTML=d;
+  const area=document.getElementById('detTableArea');if(area)area.innerHTML=d;
 }
-function detSort(key){if(_detSort===key)_detDir*=-1;else{_detSort=key;_detDir=1;}_detPage=0;drawDetTable();}
-function detPage(p){_detPage=p;drawDetTable();}
+function detSort(key){if(_detSort===key)_detDir*=-1;else{_detSort=key;_detDir=1;}_detPage=0;drawDetTable(false);}
+function detPage(p){_detPage=p;drawDetTable(false);}
 
 </script></body></html>
