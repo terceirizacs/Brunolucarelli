@@ -172,7 +172,29 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 .top-table td:nth-child(n+3){text-align:right;font-family:'JetBrains Mono'}
 .top-table tr:hover td{background:var(--track-bg)}
 .footer{text-align:center;padding:32px 0 16px;color:var(--t3);font-size:12px;border-top:1px solid var(--border);margin-top:48px}
-
+/* Detalhamento table */
+.det-table{width:100%;border-collapse:collapse;font-size:13px}
+.det-table thead{position:sticky;top:0;z-index:2}
+.det-table th{background:var(--card);padding:12px;text-align:left;border-bottom:2px solid var(--border);color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap;user-select:none}
+.det-table th:hover{color:var(--t1);background:var(--track-bg)}
+.det-table th .sort-icon{font-size:10px;margin-left:4px;color:var(--t3)}
+.det-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--t2)}
+.det-table tr:hover td{background:rgba(139,124,247,.04)}
+.det-prog{display:inline-flex;align-items:center;gap:8px}
+.det-prog-bar{width:80px;height:8px;background:var(--track-bg);border-radius:4px;overflow:hidden}
+.det-prog-fill{height:100%;border-radius:4px;transition:width .3s}
+.det-search{padding:10px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--t1);font-size:14px;width:100%;max-width:400px;outline:none}
+.det-search:focus{border-color:var(--accent)}
+.det-status{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600}
+.det-status.ativa{background:rgba(52,211,153,.12);color:var(--green)}
+.det-status.cancelada{background:rgba(248,113,113,.12);color:var(--red)}
+.det-status.concluida{background:rgba(139,124,247,.12);color:var(--accent)}
+.det-respondeu.sim{color:var(--green);font-weight:600}
+.det-respondeu.nao{color:var(--red);font-weight:600}
+.det-pager{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.det-pager button{padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--t2);font-size:13px;cursor:pointer}
+.det-pager button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.det-pager button:hover:not(.active){border-color:var(--accent);color:var(--t1)}
 /* Tooltip styles */
 .chart-tooltip{position:fixed;background:rgba(15,23,42,.95);color:#f1f5f9;padding:12px 16px;border-radius:12px;font-size:13px;pointer-events:none;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,.5);border:1px solid rgba(139,124,247,.3);backdrop-filter:blur(10px);max-width:280px;line-height:1.5;opacity:0;transition:opacity .15s}
 .chart-tooltip.show{opacity:1}
@@ -235,6 +257,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <button class="tab-btn active" onclick="switchTab('geral',this)">📊 Visão Geral</button>
 <button class="tab-btn" onclick="switchTab('engajamento',this)">🎯 Engajamento</button>
 <button class="tab-btn" onclick="switchTab('arrematacoes',this)">🏠 Arrematações</button>
+<button class="tab-btn" onclick="switchTab('detalhamento',this)">👤 Detalhamento do Aluno</button>
 </nav>
 <div class="filter-bar">
 <div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
@@ -249,6 +272,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div class="tab-content active" id="tab-geral"><div id="cGeral"></div></div>
 <div class="tab-content" id="tab-engajamento"><div id="cEng"></div></div>
 <div class="tab-content" id="tab-arrematacoes"><div id="cArr"></div></div>
+<div class="tab-content" id="tab-detalhamento"><div id="cDet"></div></div>
 <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo · Bruno Lucarelli</div>
 </div>
 <script>
@@ -264,7 +288,7 @@ async function loadData(){
     const r=await fetch(API_URL);
     const D=await r.json();
     if(D.error)throw new Error(D.error);
-    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;NOW=D.todayMs;
+    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NOW=D.todayMs;
     
     // Build filters — normalizar turma para TXX
     const tSet=new Set(),aSet=new Set(),fSet=new Set();
@@ -295,7 +319,7 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 function hbarTip(e,el){const l=el.dataset.hlbl,c=el.dataset.hcnt,p=el.dataset.hpct;let h='<div class="tt-title">'+l+'</div><div class="tt-row"><span class="tt-label">Quantidade:</span><span class="tt-value">'+c+'</span></div>';if(p)h+='<div class="tt-row"><span class="tt-label">% do total:</span><span class="tt-value">'+p+'</span></div>';showTip(e,h);}
 
 
-let CS=[],CK=[],AR=[],DV=[],NOW=Date.now();
+let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now();
 const fN=n=>n.toLocaleString('pt-BR');
 const fR=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fP=n=>n.toFixed(1).replace('.',',')+' %';
@@ -371,11 +395,11 @@ const fBg=['rgba(244,114,182,.12)','rgba(251,146,60,.12)','rgba(251,191,36,.12)'
 const pOrd=['0','1-10','11-20','21-30','31-40','41-50','51-60','61-70','71-80','81-90','91-100'];
 const pCol=['var(--red)','var(--pink)','var(--orange)','var(--gold)','var(--sky)','var(--cyan)','var(--teal)','var(--green)','var(--accent)','var(--a2)','var(--sky)'];
 
-function kpi(bg,l,v,s,c){return'<div class="kpi"><div class="kpi-bar" style="background:'+bg+'"></div><div class="kpi-l">'+l+'</div><div class="kpi-v" style="color:'+c+'">'+v+'</div>'+(s?'<div class="kpi-s">'+s+'</div>':'')+'</div>';}
+function kpi(bg,l,v,s,c){const tipH='<div class=tt-title>'+l+'</div><div class=tt-row><span class=tt-label>Valor:</span><span class=tt-value>'+v+'</span></div>'+(s?'<div class=tt-row><span class=tt-label>Detalhe:</span><span class=tt-value>'+s+'</span></div>':'');return'<div class="kpi" onmouseenter="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmouseleave="hideTip()"><div class="kpi-bar" style="background:'+bg+'"></div><div class="kpi-l">'+l+'</div><div class="kpi-v" style="color:'+c+'">'+v+'</div>'+(s?'<div class="kpi-s">'+s+'</div>':'')+'</div>';}
 
-function donut2(c1,deg,c2,cv,cl,l1,n1,lc1,l2,n2,lc2){return'<div class="donut-ring" style="background:conic-gradient('+c1+' 0deg '+deg+'deg,'+c2+' '+deg+'deg 360deg)"><div style="width:110px;height:110px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center"><div class="donut-center"><div class="donut-v" style="color:'+c1+'">'+cv+'</div><div class="donut-lbl">'+cl+'</div></div></div></div><div class="donut-legend"><span><i style="background:'+lc1+'"></i>'+l1+' ('+n1+')</span><span><i style="background:'+lc2+'"></i>'+l2+' ('+n2+')</span></div>';}
+function donut2(c1,deg,c2,cv,cl,l1,n1,lc1,l2,n2,lc2){const t=n1+n2;const p1=t?rd(n1/t*100):0;const p2=t?rd(n2/t*100):0;return'<div class="donut-ring" style="background:conic-gradient('+c1+' 0deg '+deg+'deg,'+c2+' '+deg+'deg 360deg);cursor:pointer" onmouseenter="showTip(event,\'<div class=tt-title>'+cl+'</div><div class=tt-row><span class=tt-label>'+l1+':</span><span class=tt-value>'+n1+' ('+fP(p1)+')</span></div><div class=tt-row><span class=tt-label>'+l2+':</span><span class=tt-value>'+n2+' ('+fP(p2)+')</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+cl+'</div><div class=tt-row><span class=tt-label>'+l1+':</span><span class=tt-value>'+n1+' ('+fP(p1)+')</span></div><div class=tt-row><span class=tt-label>'+l2+':</span><span class=tt-value>'+n2+' ('+fP(p2)+')</span></div>\')" onmouseleave="hideTip()"><div style="width:110px;height:110px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none"><div class="donut-center"><div class="donut-v" style="color:'+c1+'">'+cv+'</div><div class="donut-lbl">'+cl+'</div></div></div></div><div class="donut-legend"><span><i style="background:'+lc1+'"></i>'+l1+' ('+n1+')</span><span><i style="background:'+lc2+'"></i>'+l2+' ('+n2+')</span></div>';}
 
-function multiD(data,colors){const t=Object.values(data).reduce((a,b)=>a+b,0);if(!t)return'<div style="color:var(--t3);padding:40px">Sem dados</div>';let g='conic-gradient(',d=0;const k=Object.keys(data).sort((a,b)=>data[b]-data[a]);k.forEach(x=>{if(data[x]){const p=data[x]/t*360;g+=colors[x]+' '+d+'deg '+Math.round(d+p)+'deg,';d+=p;}});g=g.slice(0,-1)+')';let lg='';k.forEach(x=>{if(data[x]){const p=rd(data[x]/t*100);lg+='<span><i style="background:'+colors[x]+'"></i>'+x+' ('+fN(data[x])+' · '+fP(p)+')</span>';}});return'<div class="donut-ring" style="background:'+g+'"><div style="width:110px;height:110px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center"><div class="donut-center"><div class="donut-v">'+fN(t)+'</div><div class="donut-lbl">total</div></div></div></div><div class="donut-legend">'+lg+'</div>';}
+function multiD(data,colors){const t=Object.values(data).reduce((a,b)=>a+b,0);if(!t)return'<div style="color:var(--t3);padding:40px">Sem dados</div>';let g='conic-gradient(',d=0;const k=Object.keys(data).sort((a,b)=>data[b]-data[a]);k.forEach(x=>{if(data[x]){const p=data[x]/t*360;g+=colors[x]+' '+d+'deg '+Math.round(d+p)+'deg,';d+=p;}});g=g.slice(0,-1)+')';let lg='';let tipRows='';k.forEach(x=>{if(data[x]){const p=rd(data[x]/t*100);lg+='<span style="cursor:pointer" onmouseenter="showTip(event,\'<div class=tt-title>'+x.replace(/'/g,'')+'</div><div class=tt-row><span class=tt-label>Quantidade:</span><span class=tt-value>'+fN(data[x])+'</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(p)+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+x.replace(/'/g,'')+'</div><div class=tt-row><span class=tt-label>Quantidade:</span><span class=tt-value>'+fN(data[x])+'</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(p)+'</span></div>\')" onmouseleave="hideTip()"><i style="background:'+colors[x]+'"></i>'+x+' ('+fN(data[x])+' · '+fP(p)+')</span>';tipRows+='<div class=tt-row><span class=tt-label>'+x.replace(/'/g,'')+':</span><span class=tt-value>'+fN(data[x])+' ('+fP(p)+')</span></div>';}});const ringTip='<div class=tt-title>Total: '+fN(t)+'</div>'+tipRows;return'<div class="donut-ring" style="background:'+g+';cursor:pointer" onmouseenter="showTip(event,\''+ringTip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+ringTip.replace(/'/g,'')+'\')" onmouseleave="hideTip()"><div style="width:110px;height:110px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none"><div class="donut-center"><div class="donut-v">'+fN(t)+'</div><div class="donut-lbl">total</div></div></div></div><div class="donut-legend">'+lg+'</div>';}
 
 function hbarChart(items, color, totalForPct){
   let h='';const mx=Math.max(...items.map(i=>i[1]),1);
@@ -433,13 +457,15 @@ function renderAll(cs){
 
   // Jornada
   h+='<div class="sec">📊 Jornada do Aluno</div>';
-  const fd=fOrd.map(f=>funil[f]||0),mxF=Math.max(...fd,1);
+  const fd=fOrd.map(f=>funil[f]||0);
+  const fOrdV=[],fdV=[],fColV=[],fBgV=[];fOrd.forEach((f,i)=>{if(fd[i]>0){fOrdV.push(f);fdV.push(fd[i]);fColV.push(fColors[i]);fBgV.push(fBg[i]);}});
+  const mxF=Math.max(...fdV,1);
   h+='<div class="g2"><div class="card"><h3>Distribuição da Jornada</h3><div class="d">Classificação por progresso e acesso</div><div class="chart"><div class="chart-bars">';
-  fOrd.forEach((f,i)=>{const q=fd[i],hh=Math.round(q/mxF*90),pc=total?q/total*100:0;h+='<div class="bar" style="height:'+Math.max(hh,2)+'%;background:'+fColors[i]+'" onmouseenter="showTip(event,\'<div class=tt-title>'+f+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+f+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>\')" onmouseleave="hideTip()"><span style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;font-family:JetBrains Mono;font-weight:600;color:var(--t1);white-space:nowrap">'+pc.toFixed(1)+'%</span></div>';});
-  h+='</div><div class="chart-labels">';fOrd.forEach(f=>{h+='<div class="chart-lbl">'+f+'</div>';});
+  fOrdV.forEach((f,i)=>{const q=fdV[i],hh=Math.round(q/mxF*90),pc=total?q/total*100:0;h+='<div class="bar" style="height:'+Math.max(hh,2)+'%;background:'+fColV[i]+'" onmouseenter="showTip(event,\'<div class=tt-title>'+f+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+f+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>\')" onmouseleave="hideTip()"><span style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;font-family:JetBrains Mono;font-weight:600;color:var(--t1);white-space:nowrap">'+pc.toFixed(1)+'%</span></div>';});
+  h+='</div><div class="chart-labels">';fOrdV.forEach(f=>{h+='<div class="chart-lbl">'+f+'</div>';});
   h+='</div></div></div>';
   h+='<div class="card"><h3>Detalhamento</h3><div class="d">Quantidade e % por etapa</div>';
-  fOrd.forEach((f,i)=>{const q=fd[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBg[i]+';color:'+fColors[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColors[i]+'"></div></div></div>';});
+  fOrdV.forEach((f,i)=>{const q=fdV[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBgV[i]+';color:'+fColV[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColV[i]+'"></div></div></div>';});
   h+='</div></div>';
 
   // Comparativo por Turma — T12 a T18 apenas
@@ -558,7 +584,8 @@ function renderAll(cs){
       if(sWeeks[sk]){
         const wd=sWeeks[sk];
         const wp=wd.total?rd(wd.sim/wd.total*100):0;
-        e+='<div class="card"><h3>Semana '+num+'</h3><div class="d">'+wd.sim+' de '+wd.total+' fizeram</div><div class="donut-area">';
+        const txResp=total?rd(wd.total/total*100):0;
+        e+='<div class="card"><h3>Semana '+num+'</h3><div class="d">'+wd.sim+' de '+wd.total+' fizeram · Taxa de resposta: '+fP(txResp)+' ('+fN(total)+' alunos)</div><div class="donut-area">';
         e+=donut2('var(--teal)',Math.round(wp/100*360),'var(--red)',fP(wp),'fizeram','Sim',wd.sim,'var(--teal)','Não',(wd.total-wd.sim),'var(--red)');
         e+='</div></div>';
       }
@@ -567,7 +594,8 @@ function renderAll(cs){
       if(tWeeks[tk]){
         const td2=tWeeks[tk];
         const tp=td2.total?rd(td2.sim/td2.total*100):0;
-        e+='<div class="card"><h3>Tarefas Semana '+num+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram</div><div class="donut-area">';
+        const txRespT=total?rd(td2.total/total*100):0;
+        e+='<div class="card"><h3>Tarefas Semana '+num+'</h3><div class="d">'+td2.sim+' de '+td2.total+' fizeram · Taxa de resposta: '+fP(txRespT)+' ('+fN(total)+' alunos)</div><div class="donut-area">';
         e+=donut2('var(--accent)',Math.round(tp/100*360),'var(--red)',fP(tp),'fizeram','Sim',td2.sim,'var(--accent)','Não',(td2.total-td2.sim),'var(--red)');
         e+='</div></div>';
       }
@@ -590,13 +618,13 @@ function renderAll(cs){
 
   // Dias sem acesso
   e+='<div class="sec">👁️ Análise de Acesso</div><div class="g2">';
-  const fxD={};
-  cs.forEach(r=>{if(r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}}});
-  const dItems=[['0-14 dias',fxD['0-14 dias']||0],['15-30 dias',fxD['15-30 dias']||0],['31-60 dias',fxD['31-60 dias']||0],['>60 dias',fxD['>60 dias']||0]];
+  const fxD={};let nuncaAcessouCount=0;
+  cs.forEach(r=>{if(r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}}else{nuncaAcessouCount++;}});
+  const dItems=[['0-14 dias',fxD['0-14 dias']||0],['15-30 dias',fxD['15-30 dias']||0],['31-60 dias',fxD['31-60 dias']||0],['>60 dias',fxD['>60 dias']||0],['Nunca acessou',nuncaAcessouCount]];
   const dT=dItems.reduce((s,[,v])=>s+v,0);
-  e+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde último acesso ('+fN(dT)+' alunos)</div><div class="hbar-area" style="height:auto">';
-  const dCols=['var(--green)','var(--gold)','var(--orange)','var(--red)'];
-  dItems.forEach(([l,c],i)=>{const w=dT?Math.max(Math.round(c/Math.max(...dItems.map(x=>x[1]))*100),3):0;const p=dT?fP(rd(c/dT*100)):'';e+='<div class="hbar-row"><span class="hbar-lbl" style="min-width:90px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+dCols[i]+'">'+fN(c)+'</div></div><span class="hbar-pct">'+p+'</span></div>';});
+  e+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde último acesso ('+fN(dT)+' de '+fN(total)+' alunos)</div><div class="hbar-area" style="height:auto">';
+  const dCols=['var(--green)','var(--gold)','var(--orange)','var(--red)','var(--pink)'];
+  dItems.forEach(([l,c],i)=>{const w=dT?Math.max(Math.round(c/Math.max(...dItems.map(x=>x[1]))*100),3):0;const p=dT?fP(rd(c/dT*100)):'';const safe=l.replace(/'/g,'');e+='<div class="hbar-row" data-hlbl="'+safe+'" data-hcnt="'+fN(c)+'" data-hpct="'+p+'" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:90px">'+l+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+dCols[i]+'">'+fN(c)+'</div></div><span class="hbar-pct">'+p+'</span></div>';});
   e+='</div></div>';
 
   // Total Aulas vs Média Assistida
@@ -612,6 +640,41 @@ function renderAll(cs){
   // Progress bar visual
   e+='<div style="width:100%;max-width:500px;height:24px;background:var(--track-bg);border-radius:12px;overflow:hidden"><div style="height:100%;width:'+pctAulas+'%;background:linear-gradient(90deg,var(--accent),var(--a2));border-radius:12px;transition:width .6s"></div></div>';
   e+='</div></div></div>';
+
+  // Ao Vivo (Zoom)
+  const ftAV=getMS('fTurma');
+  let avF=AV;
+  if(ftAV.length)avF=AV.filter(r=>r.turma&&ftAV.includes(r.turma));
+  if(avF.length){
+    // Agrupar por sessão (data+tópico)
+    const sessoes={};
+    avF.forEach(r=>{
+      const k=r.dtInicio+'|'+r.topico;
+      if(!sessoes[k])sessoes[k]={topico:r.topico,turma:r.turma,data:r.dtInicio,participantes:[],totalHeader:r.totalParticipantes};
+      if(!r.nomeParticipante.includes('Host')&&!r.nomeParticipante.includes('Broadcast'))sessoes[k].participantes.push(r);
+    });
+    const sessKeys=Object.keys(sessoes).sort();
+    e+='<div class="sec">📹 Participação Ao Vivo (Zoom)</div>';
+    e+='<div class="month-grid">';
+    sessKeys.forEach(k=>{
+      const s=sessoes[k];
+      const nP=s.participantes.length;
+      const duracoes=s.participantes.filter(p=>p.duracao>0).map(p=>p.duracao);
+      const avgDur=duracoes.length?rd(duracoes.reduce((a,b)=>a+b,0)/duracoes.length):0;
+      const dtParts=s.data.split('-');const dtLabel=dtParts[2]+'/'+dtParts[1]+'/'+dtParts[0];
+      e+='<div class="month-card" onmouseenter="showTip(event,\'<div class=tt-title>'+s.turma+' - '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duração média:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+s.turma+' - '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duração média:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmouseleave="hideTip()"><div class="month-name">'+s.turma+' · '+dtLabel+'</div><div class="month-val">'+fN(nP)+'</div><div style="font-size:12px;color:var(--t3)">participantes</div><div class="month-avg">Duração média: '+avgDur.toFixed(0)+' min</div></div>';
+    });
+    e+='</div>';
+    // Summary
+    const totalSessoes=sessKeys.length;
+    const allParts=sessKeys.reduce((s,k)=>s+sessoes[k].participantes.length,0);
+    const avgParts=totalSessoes?rd(allParts/totalSessoes):0;
+    e+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
+    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total Sessões</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+totalSessoes+'</div></div>';
+    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total Participações</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+fN(allParts)+'</div></div>';
+    e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Média por Sessão</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--gold)">'+avgParts.toFixed(0)+'</div></div>';
+    e+='</div>';
+  }
 
   // Insights
   e+='<div class="sec">💡 Insights</div><div class="ins-g">';
@@ -697,7 +760,7 @@ function renderAll(cs){
     mKeys.forEach(k=>{
       const [y,m]=k.split('-');const mn=monthNames[parseInt(m)]+'/'+y;
       const d=byMonth[k];const avgM=d.vals.length?d.val/d.vals.length:0;
-      a+='<div class="month-card"><div class="month-name">'+mn+'</div><div class="month-val">'+fN(d.cnt)+'</div><div class="month-money">'+fR(d.val)+'</div><div class="month-avg">Média: '+fR(avgM)+'</div></div>';
+      a+='<div class="month-card" onmouseenter="showTip(event,\'<div class=tt-title>'+mn+'</div><div class=tt-row><span class=tt-label>Imóveis:</span><span class=tt-value>'+fN(d.cnt)+'</span></div><div class=tt-row><span class=tt-label>Volume:</span><span class=tt-value>'+fR(d.val).replace(/'/g,'')+'</span></div><div class=tt-row><span class=tt-label>Ticket médio:</span><span class=tt-value>'+fR(avgM).replace(/'/g,'')+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+mn+'</div><div class=tt-row><span class=tt-label>Imóveis:</span><span class=tt-value>'+fN(d.cnt)+'</span></div><div class=tt-row><span class=tt-label>Volume:</span><span class=tt-value>'+fR(d.val).replace(/'/g,'')+'</span></div><div class=tt-row><span class=tt-label>Ticket médio:</span><span class=tt-value>'+fR(avgM).replace(/'/g,'')+'</span></div>\')" onmouseleave="hideTip()"><div class="month-name">'+mn+'</div><div class="month-val">'+fN(d.cnt)+'</div><div class="month-money">'+fR(d.val)+'</div><div class="month-avg">Média: '+fR(avgM)+'</div></div>';
     });
     a+='</div>';
     // Summary
@@ -742,6 +805,115 @@ function renderAll(cs){
   if(ocOc>ocDe)a+='<div class="ins i"><div class="ins-t">ℹ️ Maioria ocupados ('+fN(ocOc)+' vs '+fN(ocDe)+' desocupados)</div><div class="ins-p">Suporte para desocupação pode ser necessário.</div></div>';
   a+='</div>';
   document.getElementById('cArr').innerHTML=a;
+
+  // ===== DETALHAMENTO DO ALUNO =====
+  renderDetalhamento(cs);
 }
+
+let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
+function renderDetalhamento(cs){
+  // Build table data from cs
+  _detData=cs.map(r=>{
+    const nt=normTurmaStr(r.turma)||'-';
+    const prog=r.progresso!=null?r.progresso:0;
+    const aulas=r.aulasCompletas!=null?r.aulasCompletas:0;
+    const totalA=r.totalAulas||0;
+    const prim=r.primAcesso?new Date(r.primAcesso):null;
+    const ult=r.ultAcesso?new Date(r.ultAcesso):null;
+    const diasSem=ult?Math.floor((NOW-r.ultAcesso)/86400000):null;
+    const status=r.statusClub||'-';
+    // Check if responded checkin
+    const emailLow=(r.email||'').toLowerCase();
+    const respondeu=CK.some(c=>(c.email||'').toLowerCase()===emailLow);
+    // Check semana/tarefa completion
+    const sKeys=Object.keys(r).filter(k=>k.match(/^semana\d+$/));
+    const provas=sKeys.length;
+    const provasSim=sKeys.filter(k=>String(r[k]||'').startsWith('Sim')).length;
+    // Acesso Plus
+    const acesso=r.acessoPlus?'15-30d':'60d';
+    return{
+      nome:r.nome||'-',turma:nt,status:status,prog:prog,provas:provas,provasSim:provasSim,
+      aulas:aulas,totalAulas:totalA,aulasStr:aulas+'/'+totalA,
+      primAcesso:prim,primAcessoStr:prim?prim.toLocaleDateString('pt-BR'):'-',
+      ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',
+      diasSem:diasSem,diasSemStr:diasSem!=null?diasSem+'d':'-',
+      respondeu:respondeu,acessoPlus:r.acessoPlus
+    };
+  });
+  _detPage=0;_detSearch='';
+  drawDetTable();
+}
+function drawDetTable(){
+  let data=_detData;
+  if(_detSearch){const s=_detSearch.toLowerCase();data=data.filter(r=>r.nome.toLowerCase().includes(s)||r.turma.toLowerCase().includes(s));}
+  // Sort
+  data.sort((a,b)=>{let va=a[_detSort],vb=b[_detSort];if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va==null)va='';if(vb==null)vb='';return va<vb?-_detDir:va>vb?_detDir:0;});
+  const totalR=data.length;const totalPages=Math.ceil(totalR/_detPerPage);
+  if(_detPage>=totalPages)_detPage=Math.max(0,totalPages-1);
+  const start=_detPage*_detPerPage;const slice=data.slice(start,start+_detPerPage);
+  let d='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
+  d+='<input class="det-search" placeholder="Buscar aluno..." value="'+_detSearch+'" oninput="_detSearch=this.value;_detPage=0;drawDetTable()">';
+  d+='<span style="color:var(--t3);font-size:13px">'+fN(totalR)+' aluno(s)</span></div>';
+  d+='<div style="overflow-x:auto"><table class="det-table"><thead><tr>';
+  const cols=[
+    {key:'nome',label:'ALUNO'},
+    {key:'turma',label:'TURMA'},
+    {key:'status',label:'STATUS'},
+    {key:'prog',label:'PROGRESSO'},
+    {key:'provasSim',label:'PROVAS'},
+    {key:'aulas',label:'DISCIPLINAS'},
+    {key:'diasSem',label:'ACESSO'},
+    {key:'diasSemStr',label:'DIAS S/ ACESSO'},
+    {key:'diasSem',label:'DIAS APÓS COMPRA'},
+    {key:'respondeu',label:'RESPONDEU'}
+  ];
+  const colDefs=[
+    {key:'nome',label:'ALUNO'},
+    {key:'turma',label:'TURMA'},
+    {key:'status',label:'STATUS'},
+    {key:'prog',label:'PROGRESSO'},
+    {key:'provasSim',label:'PROVAS'},
+    {key:'aulas',label:'DISCIPLINAS'},
+    {key:'diasSemStr',label:'DIAS S/ ACESSO'},
+    {key:'respondeu',label:'RESPONDEU'}
+  ];
+  colDefs.forEach(c=>{const icon=_detSort===c.key?(_detDir===1?' ↑':' ↓'):'';d+='<th onclick="detSort(\''+c.key+'\')">'+c.label+'<span class="sort-icon">'+icon+'</span></th>';});
+  d+='</tr></thead><tbody>';
+  slice.forEach(r=>{
+    d+='<tr>';
+    d+='<td style="font-weight:600;color:var(--t1);white-space:nowrap">'+r.nome+'</td>';
+    d+='<td>'+r.turma+'</td>';
+    const stCls=r.status.toLowerCase().includes('ativa')?'ativa':r.status.toLowerCase().includes('cancelad')?'cancelada':r.status.toLowerCase().includes('conclui')?'concluida':'';
+    d+='<td><span class="det-status '+stCls+'">'+r.status+'</span></td>';
+    // Progresso bar
+    const pCol=r.prog>70?'var(--green)':r.prog>30?'var(--gold)':'var(--red)';
+    d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+r.prog+'%;background:'+pCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.prog+'%</span></div></td>';
+    // Provas
+    d+='<td style="font-family:JetBrains Mono;font-size:12px">'+r.provasSim+'/'+r.provas+'</td>';
+    // Disciplinas / Aulas
+    const aPct=r.totalAulas>0?rd(r.aulas/r.totalAulas*100):0;
+    const aCol=aPct>70?'var(--green)':aPct>30?'var(--gold)':'var(--red)';
+    d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+aPct+'%;background:'+aCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.aulasStr+'</span></div></td>';
+    // Dias sem acesso
+    const dCol=r.diasSem!=null?(r.diasSem<=14?'var(--green)':r.diasSem<=30?'var(--gold)':r.diasSem<=60?'var(--orange)':'var(--red)'):'var(--t3)';
+    d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+dCol+'">'+r.diasSemStr+'</td>';
+    // Respondeu checkin
+    d+='<td><span class="det-respondeu '+(r.respondeu?'sim':'nao')+'">'+(r.respondeu?'Sim':'Não')+'</span></td>';
+    d+='</tr>';
+  });
+  d+='</tbody></table></div>';
+  // Pagination
+  if(totalPages>1){
+    d+='<div class="det-pager">';
+    if(_detPage>0)d+='<button onclick="detPage(0)">«</button><button onclick="detPage('+(_detPage-1)+')">‹</button>';
+    const startP=Math.max(0,_detPage-3),endP=Math.min(totalPages,_detPage+4);
+    for(let p=startP;p<endP;p++){d+='<button class="'+(p===_detPage?'active':'')+'" onclick="detPage('+p+')">'+(p+1)+'</button>';}
+    if(_detPage<totalPages-1)d+='<button onclick="detPage('+(_detPage+1)+')">›</button><button onclick="detPage('+(totalPages-1)+')">»</button>';
+    d+='</div>';
+  }
+  document.getElementById('cDet').innerHTML=d;
+}
+function detSort(key){if(_detSort===key)_detDir*=-1;else{_detSort=key;_detDir=1;}_detPage=0;drawDetTable();}
+function detPage(p){_detPage=p;drawDetTable();}
 
 </script></body></html>
