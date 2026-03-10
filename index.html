@@ -812,7 +812,6 @@ function renderAll(cs){
 
 let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
 function renderDetalhamento(cs){
-  // Build table data from cs
   _detData=cs.map(r=>{
     const nt=normTurmaStr(r.turma)||'-';
     const prog=r.progresso!=null?r.progresso:0;
@@ -820,24 +819,14 @@ function renderDetalhamento(cs){
     const totalA=r.totalAulas||0;
     const prim=r.primAcesso?new Date(r.primAcesso):null;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
-    const diasSem=ult?Math.floor((NOW-r.ultAcesso)/86400000):null;
-    const status=r.statusClub||'-';
-    // Check if responded checkin
-    const emailLow=(r.email||'').toLowerCase();
-    const respondeu=CK.some(c=>(c.email||'').toLowerCase()===emailLow);
-    // Check semana/tarefa completion
-    const sKeys=Object.keys(r).filter(k=>k.match(/^semana\d+$/));
-    const provas=sKeys.length;
-    const provasSim=sKeys.filter(k=>String(r[k]||'').startsWith('Sim')).length;
-    // Acesso Plus
-    const acesso=r.acessoPlus?'15-30d':'60d';
+    // Respondeu = coluna AB (mensagemAluno) tem conteúdo
+    const respondeu=!!(r.mensagemAluno && String(r.mensagemAluno).trim());
     return{
-      nome:r.nome||'-',turma:nt,status:status,prog:prog,provas:provas,provasSim:provasSim,
+      nome:r.nome||'-',turma:nt,prog:prog,
       aulas:aulas,totalAulas:totalA,aulasStr:aulas+'/'+totalA,
       primAcesso:prim,primAcessoStr:prim?prim.toLocaleDateString('pt-BR'):'-',
       ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',
-      diasSem:diasSem,diasSemStr:diasSem!=null?diasSem+'d':'-',
-      respondeu:respondeu,acessoPlus:r.acessoPlus
+      respondeu:respondeu
     };
   });
   _detPage=0;_detSearch='';
@@ -846,7 +835,6 @@ function renderDetalhamento(cs){
 function drawDetTable(){
   let data=_detData;
   if(_detSearch){const s=_detSearch.toLowerCase();data=data.filter(r=>r.nome.toLowerCase().includes(s)||r.turma.toLowerCase().includes(s));}
-  // Sort
   data.sort((a,b)=>{let va=a[_detSort],vb=b[_detSort];if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va==null)va='';if(vb==null)vb='';return va<vb?-_detDir:va>vb?_detDir:0;});
   const totalR=data.length;const totalPages=Math.ceil(totalR/_detPerPage);
   if(_detPage>=totalPages)_detPage=Math.max(0,totalPages-1);
@@ -855,26 +843,13 @@ function drawDetTable(){
   d+='<input class="det-search" placeholder="Buscar aluno..." value="'+_detSearch+'" oninput="_detSearch=this.value;_detPage=0;drawDetTable()">';
   d+='<span style="color:var(--t3);font-size:13px">'+fN(totalR)+' aluno(s)</span></div>';
   d+='<div style="overflow-x:auto"><table class="det-table"><thead><tr>';
-  const cols=[
-    {key:'nome',label:'ALUNO'},
-    {key:'turma',label:'TURMA'},
-    {key:'status',label:'STATUS'},
-    {key:'prog',label:'PROGRESSO'},
-    {key:'provasSim',label:'PROVAS'},
-    {key:'aulas',label:'DISCIPLINAS'},
-    {key:'diasSem',label:'ACESSO'},
-    {key:'diasSemStr',label:'DIAS S/ ACESSO'},
-    {key:'diasSem',label:'DIAS APÓS COMPRA'},
-    {key:'respondeu',label:'RESPONDEU'}
-  ];
   const colDefs=[
     {key:'nome',label:'ALUNO'},
     {key:'turma',label:'TURMA'},
-    {key:'status',label:'STATUS'},
     {key:'prog',label:'PROGRESSO'},
-    {key:'provasSim',label:'PROVAS'},
-    {key:'aulas',label:'DISCIPLINAS'},
-    {key:'diasSemStr',label:'DIAS S/ ACESSO'},
+    {key:'aulas',label:'AULAS COMPLETAS'},
+    {key:'primAcessoStr',label:'PRIMEIRO ACESSO'},
+    {key:'ultAcessoStr',label:'ÚLTIMO ACESSO'},
     {key:'respondeu',label:'RESPONDEU'}
   ];
   colDefs.forEach(c=>{const icon=_detSort===c.key?(_detDir===1?' ↑':' ↓'):'';d+='<th onclick="detSort(\''+c.key+'\')">'+c.label+'<span class="sort-icon">'+icon+'</span></th>';});
@@ -883,21 +858,19 @@ function drawDetTable(){
     d+='<tr>';
     d+='<td style="font-weight:600;color:var(--t1);white-space:nowrap">'+r.nome+'</td>';
     d+='<td>'+r.turma+'</td>';
-    const stCls=r.status.toLowerCase().includes('ativa')?'ativa':r.status.toLowerCase().includes('cancelad')?'cancelada':r.status.toLowerCase().includes('conclui')?'concluida':'';
-    d+='<td><span class="det-status '+stCls+'">'+r.status+'</span></td>';
     // Progresso bar
     const pCol=r.prog>70?'var(--green)':r.prog>30?'var(--gold)':'var(--red)';
     d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+r.prog+'%;background:'+pCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.prog+'%</span></div></td>';
-    // Provas
-    d+='<td style="font-family:JetBrains Mono;font-size:12px">'+r.provasSim+'/'+r.provas+'</td>';
-    // Disciplinas / Aulas
+    // Aulas completas
     const aPct=r.totalAulas>0?rd(r.aulas/r.totalAulas*100):0;
     const aCol=aPct>70?'var(--green)':aPct>30?'var(--gold)':'var(--red)';
     d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+aPct+'%;background:'+aCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.aulasStr+'</span></div></td>';
-    // Dias sem acesso
-    const dCol=r.diasSem!=null?(r.diasSem<=14?'var(--green)':r.diasSem<=30?'var(--gold)':r.diasSem<=60?'var(--orange)':'var(--red)'):'var(--t3)';
-    d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+dCol+'">'+r.diasSemStr+'</td>';
-    // Respondeu checkin
+    // Primeiro Acesso
+    d+='<td style="font-family:JetBrains Mono;font-size:12px">'+r.primAcessoStr+'</td>';
+    // Último Acesso
+    const uCol=r.ultAcesso?'var(--t2)':'var(--red)';
+    d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+uCol+'">'+r.ultAcessoStr+'</td>';
+    // Respondeu (coluna AB - Mensagem Aluno)
     d+='<td><span class="det-respondeu '+(r.respondeu?'sim':'nao')+'">'+(r.respondeu?'Sim':'Não')+'</span></td>';
     d+='</tr>';
   });
