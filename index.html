@@ -460,14 +460,14 @@ function renderAll(cs){
     h+='<div class="sec">🎯 Perfil dos Alunos (Check-in · '+fN(ckTotal)+' respostas)</div>';
     const sexo={},idade={},como={},renda={},vDisp={},jaArr={},objApr={},decisivo={};
     ckF.forEach(r=>{
-      if(r.sexo){const s=r.sexo.includes('Masculino')?'Masculino':'Feminino';sexo[s]=(sexo[s]||0)+1;}
-      if(r.idade)idade[r.idade]=(idade[r.idade]||0)+1;
-      if(r.comoConheceu){const c=r.comoConheceu.length>30?r.comoConheceu.substring(0,30)+'...':r.comoConheceu;como[c]=(como[c]||0)+1;}
-      if(r.renda)renda[r.renda]=(renda[r.renda]||0)+1;
-      if(r.valorDisponivel)vDisp[r.valorDisponivel]=(vDisp[r.valorDisponivel]||0)+1;
+      if(r.sexo&&String(r.sexo).trim()!=='#N/A'){const s=r.sexo.includes('Masculino')?'Masculino':'Feminino';sexo[s]=(sexo[s]||0)+1;}
+      if(r.idade&&String(r.idade).trim()!=='#N/A')idade[r.idade]=(idade[r.idade]||0)+1;
+      if(r.comoConheceu&&String(r.comoConheceu).trim()!=='#N/A'){const c=r.comoConheceu.length>30?r.comoConheceu.substring(0,30)+'...':r.comoConheceu;como[c]=(como[c]||0)+1;}
+      if(r.renda&&String(r.renda).trim()!=='#N/A')renda[r.renda]=(renda[r.renda]||0)+1;
+      if(r.valorDisponivel&&String(r.valorDisponivel).trim()!=='#N/A')vDisp[r.valorDisponivel]=(vDisp[r.valorDisponivel]||0)+1;
       if(r.jaArrematou!=null){const v=String(r.jaArrematou).trim();if(v&&v!=='#N/A'&&v!=='Masculino'&&v!=='Feminino'){const k=v==='Não'||v==='0'?'Não':v==='1'?'Sim (1x)':!isNaN(v)?'Sim ('+v+'x)':v;jaArr[k]=(jaArr[k]||0)+1;}}
-      if(r.objetivoAprendizado||r.objAprendizado){const raw=r.objetivoAprendizado||r.objAprendizado;const o=raw.length>40?raw.substring(0,40)+'...':raw;objApr[o]=(objApr[o]||0)+1;}
-      if(r.decisivo){const d=r.decisivo.length>40?r.decisivo.substring(0,40)+'...':r.decisivo;decisivo[d]=(decisivo[d]||0)+1;}
+      if(r.objetivoAprendizado||r.objAprendizado){const raw=r.objetivoAprendizado||r.objAprendizado;if(String(raw).trim()!=='#N/A'){const o=raw.length>40?raw.substring(0,40)+'...':raw;objApr[o]=(objApr[o]||0)+1;}}
+      if(r.decisivo&&String(r.decisivo).trim()!=='#N/A'){const d=r.decisivo.length>40?r.decisivo.substring(0,40)+'...':r.decisivo;decisivo[d]=(decisivo[d]||0)+1;}
     });
 
     // Row 1: Sexo + Faixa etária
