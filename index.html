@@ -644,55 +644,68 @@ function renderAll(cs){
   e+='<div style="width:100%;max-width:500px;height:24px;background:var(--track-bg);border-radius:12px;overflow:hidden"><div style="height:100%;width:'+pctAulas+'%;background:linear-gradient(90deg,var(--accent),var(--a2));border-radius:12px;transition:width .6s"></div></div>';
   e+='</div></div></div>';
 
-  // Ao Vivo (Zoom) — agrupado por DATA, participantes únicos por email
+  // Ao Vivo (Zoom) — turma REAL cruzando email com planilha CS
   try{
+  const avMeses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const avDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  // Mapa email -> turma normalizada da planilha CS
+  const emailTurmaMap={};
+  CS.forEach(r=>{const em=(r.email||'').toLowerCase();const nt=normTurmaStr(r.turma);if(em&&nt)emailTurmaMap[em]=nt;});
   const ftAV=getMS('fTurma');
   let avF=AV||[];
-  if(ftAV.length)avF=avF.filter(r=>r.turma&&ftAV.includes(r.turma));
+  // Não filtrar por turma do tópico — filtrar pela turma REAL do CS
   if(avF.length){
-    const avMeses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    const avDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-    // Agrupar por DATA (não turma) — participantes únicos por email
     const sessoes={};
     avF.forEach(r=>{
       if(!r.nomeParticipante||r.nomeParticipante.includes('Host')||r.nomeParticipante.includes('Broadcast'))return;
-      // dtInicio pode ser timestamp (novo GS) ou string (GS antigo)
       let dt=null;
       if(typeof r.dtInicio==='number')dt=new Date(r.dtInicio);
-      else if(typeof r.dtInicio==='string'){dt=new Date(r.dtInicio);if(isNaN(dt.getTime())){const ps=r.dtInicio.match(/(\d{4})-(\d{2})-(\d{2})/);if(ps)dt=new Date(parseInt(ps[1]),parseInt(ps[2])-1,parseInt(ps[3]));else return;}}
+      else if(typeof r.dtInicio==='string'){dt=new Date(r.dtInicio);if(isNaN(dt.getTime())){const ps=(r.dtInicio||'').match(/(\d{4})-(\d{2})-(\d{2})/);if(ps)dt=new Date(parseInt(ps[1]),parseInt(ps[2])-1,parseInt(ps[3]));else return;}}
       if(!dt||isNaN(dt.getTime()))return;
       const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
       if(!sessoes[k])sessoes[k]={data:dt,emails:new Set(),turmas:{},duracoes:[]};
-      // Participante único por email
       const em=(r.emailParticipante||'').toLowerCase();
       if(em&&!sessoes[k].emails.has(em)){
         sessoes[k].emails.add(em);
-        if(r.turma){if(!sessoes[k].turmas[r.turma])sessoes[k].turmas[r.turma]=new Set();sessoes[k].turmas[r.turma].add(em);}
+        // Turma REAL: cruzar email com planilha CS
+        const turmaReal=emailTurmaMap[em]||'Não identificado';
+        if(!sessoes[k].turmas[turmaReal])sessoes[k].turmas[turmaReal]=new Set();
+        sessoes[k].turmas[turmaReal].add(em);
       }
       if(r.duracao>0)sessoes[k].duracoes.push(r.duracao);
     });
-    // Filtrar sessões com 0 participantes
-    const sessKeys=Object.keys(sessoes).filter(k=>sessoes[k].emails.size>0).sort();
+    // Filtrar por turma selecionada no filtro (turma REAL)
+    const sessKeys=Object.keys(sessoes).filter(k=>{
+      if(!ftAV.length)return sessoes[k].emails.size>0;
+      // Sessão tem pelo menos 1 participante da turma filtrada?
+      return ftAV.some(t=>sessoes[k].turmas[t]&&sessoes[k].turmas[t].size>0);
+    }).sort();
     if(sessKeys.length){
       e+='<div class="sec">📹 Participação Ao Vivo (Zoom)</div>';
       e+='<div class="month-grid">';
       sessKeys.forEach(k=>{
         const s=sessoes[k];
-        const nP=s.emails.size;
+        // Se filtro ativo, contar só participantes das turmas filtradas
+        let nP=s.emails.size;
+        if(ftAV.length){nP=0;ftAV.forEach(t=>{if(s.turmas[t])nP+=s.turmas[t].size;});}
+        if(nP===0)return;
         const avgDur=s.duracoes.length?rd(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
         const dt=s.data;
         const dtLabel=String(dt.getDate()).padStart(2,'0')+' de '+avMeses[dt.getMonth()]+' de '+dt.getFullYear();
         const diaSemana=avDias[dt.getDay()];
-        // Breakdown por turma
+        // Breakdown por turma REAL (só turmas com participantes, ordenadas)
         let turmaInfo='';
-        const turmaKeys=Object.keys(s.turmas).sort();
-        turmaKeys.forEach(t=>{const cnt=s.turmas[t].size;if(cnt>0)turmaInfo+='<div style="font-size:11px;color:var(--t3);margin-top:2px">'+t+': '+cnt+' participantes</div>';});
+        const turmaKeys=Object.keys(s.turmas).filter(t=>s.turmas[t].size>0).sort((a,b)=>{const na=parseInt(a.replace('T',''))||999;const nb=parseInt(b.replace('T',''))||999;return na-nb;});
+        turmaKeys.forEach(t=>{
+          if(ftAV.length&&!ftAV.includes(t))return;
+          const cnt=s.turmas[t].size;
+          turmaInfo+='<div style="font-size:11px;color:var(--t3);margin-top:2px">'+t+': '+cnt+' participante'+(cnt>1?'s':'')+'</div>';
+        });
         e+='<div class="month-card" onmouseenter="showTip(event,\'<div class=tt-title>'+diaSemana+', '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes unicos:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duracao media:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+diaSemana+', '+dtLabel+'</div><div class=tt-row><span class=tt-label>Participantes unicos:</span><span class=tt-value>'+nP+'</span></div><div class=tt-row><span class=tt-label>Duracao media:</span><span class=tt-value>'+avgDur.toFixed(0)+' min</span></div>\')" onmouseleave="hideTip()"><div class="month-name">'+diaSemana+', '+dtLabel+'</div><div class="month-val">'+fN(nP)+'</div><div style="font-size:12px;color:var(--t3)">participantes únicos</div><div class="month-avg">Duração média: '+avgDur.toFixed(0)+' min</div>'+turmaInfo+'</div>';
       });
       e+='</div>';
-      // Resumo
       const totalSessoes=sessKeys.length;
-      const allParts=sessKeys.reduce((s,k)=>s+sessoes[k].emails.size,0);
+      let allParts=0;sessKeys.forEach(k=>{const s=sessoes[k];if(ftAV.length){ftAV.forEach(t=>{if(s.turmas[t])allParts+=s.turmas[t].size;});}else{allParts+=s.emails.size;}});
       const avgParts=totalSessoes?rd(allParts/totalSessoes):0;
       e+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
       e+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total de Sessões</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+totalSessoes+'</div></div>';
