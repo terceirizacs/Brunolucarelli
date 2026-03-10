@@ -355,8 +355,9 @@ let rows=AR.filter(r=>{
   if(!normTurma(r))return false;
   // Excluir GA (Grupo de Arrematadores)
   if((r.nome||'').toLowerCase().includes('grupo'))return false;
-  const si=(r.statusImovel||'').toString().trim();
-  if(si==='Inválido'||si==='Cancelado'||si==='Duplicado')return false;
+  // Coluna D: somente arrematações "Válido"
+  const val=(r.validade||'').toString().trim();
+  if(val&&val!=='Válido')return false;
   return true;
 });
 if(ft.length)rows=rows.filter(r=>ft.includes(normTurma(r)));
@@ -646,13 +647,13 @@ function renderAll(cs){
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
   const showT=['T12','T13','T14','T15','T16','T17','T18'].filter(t=>arrT[t]>0);
-  const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const alunos=arrTAlunos[t]?arrTAlunos[t].size:0;const tTotal=turmaC[t]||1;const pct=rd(cnt/tTotal*100);return[t,cnt,pct,turmaC[t]||0,alunos];});
-  a+='<div class="card"><h3>Imóveis Arrematados por Turma</h3><div class="d">Fonte: Controle de Arrematação (mesmo racional da Visão Geral)</div>';
+  const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const alunos=arrTAlunos[t]?arrTAlunos[t].size:0;const tt=turmaC[t]||0;const pctAlunos=tt?rd(alunos/tt*100):0;return[t,cnt,tt,alunos,pctAlunos];});
+  a+='<div class="card"><h3>Imóveis Arrematados por Turma</h3><div class="d">Fonte: Controle de Arrematação (somente válidos, sem GA)</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
   a+='<div class="hbar-area" style="height:auto">';
-  arrTItems.forEach(([t,cnt,pct,tt,alunos])=>{
+  arrTItems.forEach(([t,cnt,tt,alunos,pctAlunos])=>{
     const w=Math.max(Math.round(cnt/mxAT*100),3);
-    a+='<div class="hbar-row" data-hlbl="'+t+'" data-hcnt="'+fN(cnt)+' imóveis ('+fN(alunos)+' alunos únicos)" data-hpct="'+fP(pct)+' de '+fN(tt)+' alunos na turma" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:50px;font-weight:700">'+t+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' imóveis</div></div><span class="hbar-pct">'+fN(alunos)+' alunos · '+fP(pct)+'</span></div>';
+    a+='<div class="hbar-row" data-hlbl="'+t+'" data-hcnt="'+fN(cnt)+' imóveis · '+fN(alunos)+' alunos únicos" data-hpct="'+fP(pctAlunos)+' da turma ('+fN(tt)+' alunos)" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:50px;font-weight:700">'+t+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' imóveis</div></div><span class="hbar-pct">'+fN(alunos)+' alunos · '+fP(pctAlunos)+' da turma</span></div>';
   });
   a+='</div></div>';
 
