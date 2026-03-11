@@ -429,7 +429,7 @@ function renderAll(cs){
       const p=r.progresso,fp=p===0?'0':p<=10?'1-10':p<=20?'11-20':p<=30?'21-30':p<=40?'31-40':p<=50?'41-50':p<=60?'51-60':p<=70?'61-70':p<=80?'71-80':p<=90?'81-90':'91-100';
       fxProg[fp]=(fxProg[fp]||0)+1;
     }
-    if(r.primAcesso||r.ultAcesso)acessou++;else nunca++;
+    if(r.ultAcesso)acessou++;else nunca++;
     // (arrematações agora vêm do Controle de arrematação via getFA)
     if(r.semana1||r.semana01){s01T++;const sv=r.semana1||r.semana01;if(String(sv).startsWith('Sim'))s01Sim++;}
     if(r.tarefa1||r.tarefas01){t01T++;const tv=r.tarefa1||r.tarefas01;if(String(tv)==='Sim')t01Sim++;}
@@ -622,7 +622,7 @@ function renderAll(cs){
   // Dias sem acesso
   e+='<div class="sec">👁️ Análise de Acesso</div><div class="g2">';
   const fxD={};let nuncaAcessouCount=0;
-  cs.forEach(r=>{const acessouAlguma=r.primAcesso||r.ultAcesso;if(acessouAlguma&&r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}else{fxD['0-14 dias']=(fxD['0-14 dias']||0)+1;}}else if(acessouAlguma&&!r.ultAcesso){fxD['0-14 dias']=(fxD['0-14 dias']||0)+1;}else{nuncaAcessouCount++;}});
+  cs.forEach(r=>{if(r.ultAcesso){const d=Math.floor((NOW-r.ultAcesso)/86400000);if(d>=0){const f=d<=14?'0-14 dias':d<=30?'15-30 dias':d<=60?'31-60 dias':'>60 dias';fxD[f]=(fxD[f]||0)+1;}else{fxD['0-14 dias']=(fxD['0-14 dias']||0)+1;}}else{nuncaAcessouCount++;}});
   const dItems=[['0-14 dias',fxD['0-14 dias']||0],['15-30 dias',fxD['15-30 dias']||0],['31-60 dias',fxD['31-60 dias']||0],['>60 dias',fxD['>60 dias']||0],['Nunca acessou',nuncaAcessouCount]];
   const dT=dItems.reduce((s,[,v])=>s+v,0);
   e+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde último acesso</div><div class="hbar-area" style="height:auto">';
@@ -857,14 +857,12 @@ function renderDetalhamento(cs){
     const prog=r.progresso!=null?r.progresso:0;
     const aulas=r.aulasCompletas!=null?r.aulasCompletas:0;
     const totalA=r.totalAulas||0;
-    const prim=r.primAcesso?new Date(r.primAcesso):null;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
     // Respondeu = coluna AB (mensagemAluno) tem conteúdo
     const respondeu=!!(r.mensagemAluno && String(r.mensagemAluno).trim());
     return{
       nome:r.nome||'-',turma:nt,prog:prog,
       aulas:aulas,totalAulas:totalA,aulasStr:aulas+'/'+totalA,
-      primAcesso:prim,primAcessoStr:prim?prim.toLocaleDateString('pt-BR'):'-',
       ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',
       respondeu:respondeu
     };
@@ -896,7 +894,6 @@ function drawDetTable(fromSearch){
     {key:'turma',label:'TURMA'},
     {key:'prog',label:'PROGRESSO'},
     {key:'aulas',label:'AULAS COMPLETAS'},
-    {key:'primAcessoStr',label:'PRIMEIRO ACESSO'},
     {key:'ultAcessoStr',label:'ÚLTIMO ACESSO'},
     {key:'respondeu',label:'RESPONDEU'}
   ];
@@ -913,8 +910,6 @@ function drawDetTable(fromSearch){
     const aPct=r.totalAulas>0?rd(r.aulas/r.totalAulas*100):0;
     const aCol=aPct>70?'var(--green)':aPct>30?'var(--gold)':'var(--red)';
     d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+aPct+'%;background:'+aCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.aulasStr+'</span></div></td>';
-    // Primeiro Acesso
-    d+='<td style="font-family:JetBrains Mono;font-size:12px">'+r.primAcessoStr+'</td>';
     // Último Acesso
     const uCol=r.ultAcesso?'var(--t2)':'var(--red)';
     d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+uCol+'">'+r.ultAcessoStr+'</td>';
