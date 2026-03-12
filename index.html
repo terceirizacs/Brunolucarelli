@@ -895,7 +895,7 @@ function drawDetTable(fromSearch){
     {key:'prog',label:'PROGRESSO'},
     {key:'aulas',label:'AULAS COMPLETAS'},
     {key:'ultAcessoStr',label:'ÚLTIMO ACESSO'},
-    {key:'respondeu',label:'RESPONDEU'}
+    {key:'respondeu',label:'RESPONDEU 1X1'}
   ];
   colDefs.forEach(c=>{const icon=_detSort===c.key?(_detDir===1?' ↑':' ↓'):'';d+='<th onclick="detSort(\''+c.key+'\')">'+c.label+'<span class="sort-icon">'+icon+'</span></th>';});
   d+='</tr></thead><tbody>';
