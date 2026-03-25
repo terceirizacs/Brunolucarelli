@@ -266,7 +266,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
 <div class="filter-grid">
 <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurma"></div></div>
-<div class="filter-group"><label class="filter-label">Acesso Plus</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
+<div class="filter-group"><label class="filter-label">Arrematou Imóvel</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
 <div class="filter-group"><label class="filter-label">Funil Calculado</label><div class="ms-wrap" id="fFunil"></div></div>
 <div class="filter-group"><label class="filter-label">Data da Compra</label><div class="filter-date-row"><input type="date" class="filter-date" id="fDe"><input type="date" class="filter-date" id="fAte"></div></div>
 </div>
@@ -293,13 +293,18 @@ async function loadData(){
     if(D.error)throw new Error(D.error);
     CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NOW=D.todayMs;
     
+    // Build set de nomes que arremataram (da aba Controle de arrematação)
+    arrNomesSet=new Set();
+    AR.forEach(a=>{if(a.nome)arrNomesSet.add(a.nome.trim().toLowerCase());});
+
     // Build filters — normalizar turma para TXX
     const tSet=new Set(),aSet=new Set(),fSet=new Set();
     CS.forEach(r=>{
       const nt=normTurmaStr(r.turma);
       if(nt)tSet.add(nt);
       if(r.funilCalc)fSet.add(r.funilCalc);
-      aSet.add(r.acessoPlus?'Acesso Plus':'Acesso Normal');
+      const nLow=(r.nome||'').trim().toLowerCase();
+      aSet.add(arrNomesSet.has(nLow)?'Arrematou Imóvel':'Não Arrematou Imóvel');
     });
     const tOrd=['T7','T8','T9','T10','T12','T13','T14','T15','T16','T17','T18'];
     const sT=[...tSet].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
@@ -322,7 +327,7 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 function hbarTip(e,el){const l=el.dataset.hlbl,c=el.dataset.hcnt,p=el.dataset.hpct;let h='<div class="tt-title">'+l+'</div><div class="tt-row"><span class="tt-label">Quantidade:</span><span class="tt-value">'+c+'</span></div>';if(p)h+='<div class="tt-row"><span class="tt-label">% do total:</span><span class="tt-value">'+p+'</span></div>';showTip(e,h);}
 
 
-let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now();
+let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now(),arrNomesSet=new Set();
 const fN=n=>n.toLocaleString('pt-BR');
 const fR=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fP=n=>n.toFixed(1).replace('.',',')+' %';
@@ -344,7 +349,7 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 
-function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const t=r.acessoPlus?'Acesso Plus':'Acesso Normal';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nLow=(r.nome||'').trim().toLowerCase();const t=arrNomesSet.has(nLow)?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
 // Normaliza qualquer formato de turma para "T7", "T17", etc.
 // Exemplos:
 //   "Mentoria T17 Orderbump T18 a T21" -> "T17"
