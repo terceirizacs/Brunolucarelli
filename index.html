@@ -296,13 +296,12 @@ async function loadData(){
     // Build sets de arrematadores (da aba Controle de arrematação) — mesmos filtros do getFA
     arrNomesSet=new Set();
     arrEmailsSet=new Set();
-    arrFLSet=new Set();
     AR.forEach(a=>{
       if(!normTurma(a))return;
       if((a.nome||'').toLowerCase().includes('grupo'))return;
       const val=(a.validade||'').toString().trim();
       if(val&&val!=='Válido')return;
-      if(a.nome){const nn=normNome(a.nome);arrNomesSet.add(nn);arrFLSet.add(firstLast(nn));}
+      if(a.nome)arrNomesSet.add(normNome(a.nome));
       if(a.email)arrEmailsSet.add(a.email.trim().toLowerCase());
     });
 
@@ -312,10 +311,7 @@ async function loadData(){
       const nt=normTurmaStr(r.turma);
       if(nt)tSet.add(nt);
       if(r.funilCalc)fSet.add(r.funilCalc);
-      const nN=normNome(r.nome);
-      const eLow=(r.email||'').trim().toLowerCase();
-      const isArr=arrNomesSet.has(nN)||arrFLSet.has(firstLast(nN))||(eLow&&arrEmailsSet.has(eLow));
-      aSet.add(isArr?'Arrematou Imóvel':'Não Arrematou Imóvel');
+      aSet.add(isArrematador(r)?'Arrematou Imóvel':'Não Arrematou Imóvel');
     });
     const tOrd=['T7','T8','T9','T10','T12','T13','T14','T15','T16','T17','T18'];
     const sT=[...tSet].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
@@ -338,7 +334,7 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 function hbarTip(e,el){const l=el.dataset.hlbl,c=el.dataset.hcnt,p=el.dataset.hpct;let h='<div class="tt-title">'+l+'</div><div class="tt-row"><span class="tt-label">Quantidade:</span><span class="tt-value">'+c+'</span></div>';if(p)h+='<div class="tt-row"><span class="tt-label">% do total:</span><span class="tt-value">'+p+'</span></div>';showTip(e,h);}
 
 
-let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set(),arrFLSet=new Set();
+let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set();
 const fN=n=>n.toLocaleString('pt-BR');
 const fR=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fP=n=>n.toFixed(1).replace('.',',')+' %';
@@ -346,8 +342,11 @@ const rd=n=>Math.round(n*10)/10;
 const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
 // Normalizar nome: lowercase, sem acentos, sem espaços extras
 function normNome(s){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ');}
-// Primeiro + último nome (para casos com nome do meio diferente)
-function firstLast(s){const p=s.split(' ');return p.length>=2?p[0]+' '+p[p.length-1]:s;}
+// Checa se aluno CS é arrematador (usando sets globais — todas as turmas)
+function isArrematador(r){
+  const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();
+  return arrNomesSet.has(nN)||(eLow&&arrEmailsSet.has(eLow));
+}
 const SEPT25=new Date(2025,8,1).getTime();
 const monthNames={1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'};
 
@@ -364,7 +363,11 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 
-function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome);const eLow=(r.email||'').trim().toLowerCase();const isArr=arrNomesSet.has(nN)||arrFLSet.has(firstLast(nN))||(eLow&&arrEmailsSet.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;
+// Se filtro arrematou ativo E turma selecionada, pré-calcular sets da turma
+let _arrN=arrNomesSet,_arrE=arrEmailsSet;
+if(fa.length&&ft.length){const faRows=getFA();_arrN=new Set();_arrE=new Set();faRows.forEach(a=>{if(a.nome)_arrN.add(normNome(a.nome));if(a.email)_arrE.add(a.email.trim().toLowerCase());});}
+return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();const isArr=_arrN.has(nN)||(eLow&&_arrE.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
 // Normaliza qualquer formato de turma para "T7", "T17", etc.
 // Exemplos:
 //   "Mentoria T17 Orderbump T18 a T21" -> "T17"
