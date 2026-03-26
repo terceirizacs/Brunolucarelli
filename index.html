@@ -871,6 +871,47 @@ function renderAll(cs){
     a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Volume Total</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+fR(totalMV)+'</div></div>';
     a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Média por Imóvel</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--gold)">'+fR(avgAll)+'</div></div>';
     a+='</div>';
+
+    // === % Arrematação por Turma × Mês (heat map) ===
+    const tmData={};const tmTurmas=new Set();
+    arrV.forEach(r=>{
+      if(!r.dtArremate||r.dtArremate<SEPT25)return;
+      if((r.nome||'').toLowerCase().includes('grupo'))return;
+      const t=normTurma(r);if(!t)return;
+      const dt=new Date(r.dtArremate);
+      const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+      if(!tmData[t])tmData[t]={};
+      if(!tmData[t][k])tmData[t][k]=new Set();
+      tmData[t][k].add((r.nome||'').toLowerCase());
+      tmTurmas.add(t);
+    });
+    const tmT=[...tmTurmas].sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
+    if(tmT.length&&mKeys.length){
+      a+='<div class="card" style="margin-top:20px;overflow-x:auto"><h3>📈 % Arrematação por Turma × Mês</h3><div class="d">Alunos únicos que arremataram / total da turma — evolução mensal</div>';
+      a+='<table style="width:100%;border-collapse:separate;border-spacing:4px;margin-top:16px;font-family:JetBrains Mono;font-size:13px">';
+      a+='<tr><th style="text-align:left;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">TURMA</th>';
+      mKeys.forEach(k=>{const [y,m]=k.split('-');a+='<th style="text-align:center;padding:8px 6px;color:var(--t3);font-size:11px;font-weight:600">'+monthNames[parseInt(m)]+'/'+y.slice(2)+'</th>';});
+      a+='<th style="text-align:center;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">ACUM.</th></tr>';
+      tmT.forEach(t=>{
+        const tt=turmaC[t]||0;if(!tt)return;
+        a+='<tr><td style="padding:8px 12px;font-weight:700;color:var(--t1);white-space:nowrap">'+t+' <span style="font-weight:400;color:var(--t3);font-size:11px">('+fN(tt)+')</span></td>';
+        let acumSet=new Set();
+        mKeys.forEach(k=>{
+          const alunos=tmData[t]&&tmData[t][k]?tmData[t][k]:new Set();
+          alunos.forEach(n=>acumSet.add(n));
+          const pct=rd(alunos.size/tt*100);
+          const bg=pct===0?'transparent':pct<3?'rgba(52,211,153,0.1)':pct<6?'rgba(52,211,153,0.2)':pct<10?'rgba(52,211,153,0.35)':'rgba(52,211,153,0.5)';
+          const fc=pct===0?'var(--t3)':'var(--t1)';
+          const tipH='<div class=tt-title>'+t+' — '+monthNames[parseInt(k.split('-')[1])]+'/'+k.split('-')[0].slice(2)+'</div><div class=tt-row><span class=tt-label>Alunos arremataram:</span><span class=tt-value>'+alunos.size+'</span></div><div class=tt-row><span class=tt-label>Total turma:</span><span class=tt-value>'+fN(tt)+'</span></div><div class=tt-row><span class=tt-label>% da turma:</span><span class=tt-value>'+fP(pct)+'</span></div>';
+          a+='<td style="text-align:center;padding:8px 6px;background:'+bg+';border-radius:8px;color:'+fc+';font-weight:'+(pct>0?'600':'400')+';cursor:pointer" onmouseenter="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmouseleave="hideTip()">'+(pct>0?fP(pct):'-')+'</td>';
+        });
+        const acumPct=rd(acumSet.size/tt*100);
+        const acumBg=acumPct<5?'rgba(139,92,246,0.15)':acumPct<10?'rgba(139,92,246,0.25)':'rgba(139,92,246,0.4)';
+        const acumTip='<div class=tt-title>'+t+' — Acumulado</div><div class=tt-row><span class=tt-label>Alunos únicos:</span><span class=tt-value>'+acumSet.size+'</span></div><div class=tt-row><span class=tt-label>Total turma:</span><span class=tt-value>'+fN(tt)+'</span></div><div class=tt-row><span class=tt-label>% da turma:</span><span class=tt-value>'+fP(acumPct)+'</span></div>';
+        a+='<td style="text-align:center;padding:8px 12px;background:'+acumBg+';border-radius:8px;color:var(--t1);font-weight:700;cursor:pointer" onmouseenter="showTip(event,\''+acumTip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+acumTip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">'+fP(acumPct)+'</td></tr>';
+      });
+      a+='</table></div>';
+    }
   }
 
   // Formulários preenchidos (Submission Date Sept 2025+)
