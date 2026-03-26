@@ -797,7 +797,7 @@ function renderAll(cs){
   a+='</div>';
 
   // Quantidade de IMÓVEIS por Turma — fonte: Controle de arrematação (mesma de getFA)
-  a+='<div class="sec">🏠 Arrematações por Turma (T12–T18)</div>';
+  a+='<div class="sec">🏠 Arrematações por Turma</div>';
   const arrT={},arrTAlunos={},arrTVal={};
   // Contar imóveis do Controle de arrematação (mesmo getFA = mesma fonte da Visão Geral)
   arrV.forEach(r=>{
@@ -807,7 +807,7 @@ function renderAll(cs){
     arrTAlunos[t].add((r.nome||'').toLowerCase());
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
-  const showT=['T12','T13','T14','T15','T16','T17','T18'].filter(t=>arrT[t]>0);
+  const showT=Object.keys(arrT).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&arrT[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
   const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const alunos=arrTAlunos[t]?arrTAlunos[t].size:0;const tt=turmaC[t]||0;const pctAlunos=tt?rd(alunos/tt*100):0;return[t,cnt,tt,alunos,pctAlunos];});
   a+='<div class="card"><h3>Imóveis Arrematados por Turma</h3><div class="d">Fonte: Controle de Arrematação (somente válidos, sem GA)</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
@@ -873,30 +873,35 @@ function renderAll(cs){
     a+='</div>';
 
     // === % Arrematação por Turma × Mês (heat map) ===
-    const tmData={};const tmTurmas=new Set();
+    // Usa mesma fonte do gráfico de barras (arrV sem filtro de data), agrupando por mês
+    const tmData={};
     arrV.forEach(r=>{
-      if(!r.dtArremate||r.dtArremate<SEPT25)return;
-      if((r.nome||'').toLowerCase().includes('grupo'))return;
       const t=normTurma(r);if(!t)return;
+      const tn=parseInt(t.replace('T',''));if(tn<12)return;
+      if(!r.dtArremate)return;
       const dt=new Date(r.dtArremate);
       const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
       if(!tmData[t])tmData[t]={};
       if(!tmData[t][k])tmData[t][k]=new Set();
       tmData[t][k].add((r.nome||'').toLowerCase());
-      tmTurmas.add(t);
     });
-    const tmT=[...tmTurmas].sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
-    if(tmT.length&&mKeys.length){
+    // Coletar todos os meses com dados (sem filtro Set/25)
+    const allMonths=new Set();
+    Object.values(tmData).forEach(tm=>{Object.keys(tm).forEach(k=>allMonths.add(k));});
+    const allMKeys=[...allMonths].sort();
+    // Turmas T12+ dinâmico (inclui T19, T20, etc. automaticamente)
+    const tmT=Object.keys(tmData).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
+    if(tmT.length&&allMKeys.length){
       a+='<div class="card" style="margin-top:20px;overflow-x:auto"><h3>📈 % Arrematação por Turma × Mês</h3><div class="d">Alunos únicos que arremataram / total da turma — evolução mensal</div>';
       a+='<table style="width:100%;border-collapse:separate;border-spacing:4px;margin-top:16px;font-family:JetBrains Mono;font-size:13px">';
       a+='<tr><th style="text-align:left;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">TURMA</th>';
-      mKeys.forEach(k=>{const [y,m]=k.split('-');a+='<th style="text-align:center;padding:8px 6px;color:var(--t3);font-size:11px;font-weight:600">'+monthNames[parseInt(m)]+'/'+y.slice(2)+'</th>';});
+      allMKeys.forEach(k=>{const [y,m]=k.split('-');a+='<th style="text-align:center;padding:8px 6px;color:var(--t3);font-size:11px;font-weight:600">'+monthNames[parseInt(m)]+'/'+y.slice(2)+'</th>';});
       a+='<th style="text-align:center;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">ACUM.</th></tr>';
       tmT.forEach(t=>{
         const tt=turmaC[t]||0;if(!tt)return;
         a+='<tr><td style="padding:8px 12px;font-weight:700;color:var(--t1);white-space:nowrap">'+t+' <span style="font-weight:400;color:var(--t3);font-size:11px">('+fN(tt)+')</span></td>';
         let acumSet=new Set();
-        mKeys.forEach(k=>{
+        allMKeys.forEach(k=>{
           const alunos=tmData[t]&&tmData[t][k]?tmData[t][k]:new Set();
           alunos.forEach(n=>acumSet.add(n));
           const pct=rd(alunos.size/tt*100);
