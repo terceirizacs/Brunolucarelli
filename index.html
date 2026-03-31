@@ -1071,7 +1071,7 @@ function renderNPS(){
     });
   }
   const total=npsData.length;
-  if(!total){document.getElementById('cNPS').innerHTML='<div style="color:var(--t3);padding:40px;text-align:center">Sem dados de NPS</div>';return;}
+  if(!total){document.getElementById('cNPS').innerHTML='<div style="color:var(--t3);padding:40px;text-align:center;font-size:14px">Sem dados de NPS para a turma selecionada.<br><span style="font-size:12px">As turmas com NPS disponível são: T10 a T17</span></div>';return;}
 
   // NPS Score (baseado na nota "Indicaria a Mentoria" - col F)
   const indicariaResps=npsData.filter(r=>r.notaIndicaria!=null);
@@ -1138,41 +1138,90 @@ function renderNPS(){
   }
   h+='</div></div>';
 
-  // Pontos Fortes e Pontos de Melhoria
+  // Categorização automática de Pontos Fortes e Melhoria
+  function categorizarTextos(textos,categorias){
+    var result=[];
+    for(var cat in categorias){
+      var kws=categorias[cat];
+      var count=0;
+      textos.forEach(function(t){var lc=t.toLowerCase();if(kws.some(function(k){return lc.indexOf(k)>=0;}))count++;});
+      if(count>0)result.push([cat,count]);
+    }
+    return result.sort(function(a,b){return b[1]-a[1];});
+  }
+
+  var textosFt=npsData.filter(function(r){return r.pontosFortes;}).map(function(r){return r.pontosFortes;});
+  var textosMl=npsData.filter(function(r){return r.pontosMelhoria;}).map(function(r){return r.pontosMelhoria;});
+
+  var catFortes=categorizarTextos(textosFt,{
+    'Ecossistema e suporte (WhatsApp, parceiros)':['ecossistema','suporte','whatsapp','whats','grupo','comunidade','parceiro','parceria'],
+    'Clareza / didática do conteúdo':['conteúdo','conteudo','didática','didatica','clareza','claro','objetivo','objetividade'],
+    'Mentores e equipe':['bruno','mentores','mentor','guilherme','equipe','time','supervisor'],
+    'Aulas gravadas na plataforma':['plataforma','aulas gravadas','módulo','modulo','material','curso'],
+    'Lives / aulas ao vivo':['live','lives','ao vivo','plantão','plantao'],
+    'Networking entre alunos':['network','networking','conexão','conexao','contato','alunos'],
+    'Dossiê / checagem de documentos':['dossie','dossiê','checagem','documento','análise','analise']
+  });
+
+  var catMelhoria=categorizarTextos(textosMl,{
+    'Mais tempo / prazo da mentoria':['tempo','prazo','duração','duracao','extensão','mais encontro','meses'],
+    'Mais presença do Bruno':['bruno','presença','presenca','aparecer','mentor'],
+    'Aulas ao vivo / mais lives':['ao vivo','live','lives','aula ao vivo'],
+    'Checklist / PDF de referência':['checklist','pdf','material','documento','planilha','referência'],
+    'Alinhamento venda × entrega':['venda','promess','prometido','entrega','venderam','alinhamento'],
+    'Suporte individual':['individual','personalizado','lote','particular'],
+    'Mais conteúdo / atualização':['mais conteudo','mais conteúdo','conteudo novo','repetitivo','atualiz']
+  });
+
   h+='<div class="sec">💬 Feedback dos Alunos</div>';
   h+='<div class="g2">';
 
-  // Pontos Fortes - 5 mais recentes
-  h+='<div class="card"><h3>Pontos Fortes</h3><div class="d">5 respostas mais recentes</div>';
-  const fortes=npsData.filter(r=>r.pontosFortes).sort((a,b)=>(b.data||0)-(a.data||0)).slice(0,5);
-  if(fortes.length){
-    fortes.forEach(r=>{
-      const nt=normTurmaStr(r.turma)||'';
-      h+='<div style="padding:12px 0;border-bottom:1px solid var(--border)">';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-weight:600;color:var(--t1);font-size:13px">'+r.nome+'</span>'+(nt?'<span style="font-size:11px;color:var(--t3);background:var(--bg);padding:2px 8px;border-radius:8px">'+nt+'</span>':'')+'</div>';
-      h+='<div style="color:var(--t2);font-size:13px;line-height:1.5">'+r.pontosFortes+'</div>';
+  // Pontos Fortes - categorizado
+  h+='<div class="card"><h3 style="color:var(--green)">✅ Pontos Fortes</h3><div class="d">'+textosFt.length+' respostas categorizadas automaticamente</div>';
+  if(catFortes.length){
+    var mxFt=catFortes[0][1];
+    catFortes.forEach(function(c){
+      var w=Math.max(Math.round(c[1]/mxFt*100),5);
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">';
+      h+='<div style="flex:1;font-size:13px;color:var(--t1)">'+c[0]+'</div>';
+      h+='<div style="width:120px;height:8px;background:var(--track-bg);border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:var(--green);border-radius:4px"></div></div>';
+      h+='<div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--green);min-width:30px;text-align:right">'+c[1]+'x</div>';
       h+='</div>';
     });
-  } else {
-    h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';
-  }
+  }else{h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';}
   h+='</div>';
 
-  // Pontos de Melhoria - 5 mais recentes
-  h+='<div class="card"><h3>Pontos de Melhoria</h3><div class="d">5 respostas mais recentes</div>';
-  const melhoria=npsData.filter(r=>r.pontosMelhoria).sort((a,b)=>(b.data||0)-(a.data||0)).slice(0,5);
-  if(melhoria.length){
-    melhoria.forEach(r=>{
-      const nt=normTurmaStr(r.turma)||'';
-      h+='<div style="padding:12px 0;border-bottom:1px solid var(--border)">';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-weight:600;color:var(--t1);font-size:13px">'+r.nome+'</span>'+(nt?'<span style="font-size:11px;color:var(--t3);background:var(--bg);padding:2px 8px;border-radius:8px">'+nt+'</span>':'')+'</div>';
-      h+='<div style="color:var(--t2);font-size:13px;line-height:1.5">'+r.pontosMelhoria+'</div>';
+  // Pontos de Melhoria - categorizado
+  h+='<div class="card"><h3 style="color:var(--gold)">⚠️ Pontos de Melhoria</h3><div class="d">'+textosMl.length+' respostas categorizadas automaticamente</div>';
+  if(catMelhoria.length){
+    var mxMl=catMelhoria[0][1];
+    catMelhoria.forEach(function(c){
+      var w=Math.max(Math.round(c[1]/mxMl*100),5);
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">';
+      h+='<div style="flex:1;font-size:13px;color:var(--t1)">'+c[0]+'</div>';
+      h+='<div style="width:120px;height:8px;background:var(--track-bg);border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:var(--gold);border-radius:4px"></div></div>';
+      h+='<div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--gold);min-width:30px;text-align:right">'+c[1]+'x</div>';
       h+='</div>';
     });
-  } else {
-    h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';
-  }
+  }else{h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';}
   h+='</div>';
+  h+='</div>';
+
+  // Insights
+  h+='<div class="sec">💡 Insights do NPS</div><div class="ins-g">';
+  if(npsScore>50)h+='<div class="ins ok"><div class="ins-t">✅ NPS Excelente ('+npsScore+')</div><div class="ins-p">Score acima de 50 indica alta satisfação. Os alunos são promotores da mentoria.</div></div>';
+  else if(npsScore>=0)h+='<div class="ins i"><div class="ins-t">ℹ️ NPS em Zona de Aperfeiçoamento ('+npsScore+')</div><div class="ins-p">Score entre 0 e 50. Há espaço para melhorar a experiência e converter neutros em promotores.</div></div>';
+  else h+='<div class="ins w"><div class="ins-t">⚠️ NPS Crítico ('+npsScore+')</div><div class="ins-p">Score negativo indica mais detratores que promotores. Ações urgentes necessárias.</div></div>';
+
+  if(avgMentoria>=8)h+='<div class="ins ok"><div class="ins-t">✅ Nota média da mentoria: '+avgMentoria.toFixed(1)+'</div><div class="ins-p">Acima de 8.0 — conteúdo e experiência bem avaliados.</div></div>';
+  else h+='<div class="ins i"><div class="ins-t">ℹ️ Nota média da mentoria: '+avgMentoria.toFixed(1)+'</div><div class="ins-p">Abaixo de 8.0 — revisar pontos de melhoria mais citados.</div></div>';
+
+  if(catFortes.length)h+='<div class="ins ok"><div class="ins-t">💪 Ponto forte mais citado: '+catFortes[0][0]+'</div><div class="ins-p">Mencionado '+catFortes[0][1]+' vezes. Este é o principal diferencial percebido pelos alunos.</div></div>';
+  if(catMelhoria.length)h+='<div class="ins w"><div class="ins-t">🔧 Melhoria mais pedida: '+catMelhoria[0][0]+'</div><div class="ins-p">Mencionado '+catMelhoria[0][1]+' vezes. Priorizar essa melhoria pode impactar diretamente o NPS.</div></div>';
+
+  var pctArr=npsData.filter(function(r){return r.arrematou&&r.arrematou.indexOf('Sim')>=0;}).length;
+  var pctArrPct=total>0?rd(pctArr/total*100):0;
+  h+='<div class="ins i"><div class="ins-t">🏠 '+pctArr+' alunos que responderam NPS já arremataram ('+fP(pctArrPct)+')</div><div class="ins-p">Alunos que arrematam tendem a dar notas mais altas.</div></div>';
 
   h+='</div>';
   document.getElementById('cNPS').innerHTML=h;
