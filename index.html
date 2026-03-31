@@ -261,6 +261,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <button class="tab-btn" onclick="switchTab('engajamento',this)">🎯 Engajamento</button>
 <button class="tab-btn" onclick="switchTab('arrematacoes',this)">🏠 Arrematações</button>
 <button class="tab-btn" onclick="switchTab('detalhamento',this)">👤 Detalhamento do Aluno</button>
+<button class="tab-btn" onclick="switchTab('nps',this)">📊 NPS</button>
 </nav>
 <div class="filter-bar">
 <div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
@@ -276,6 +277,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div class="tab-content" id="tab-engajamento"><div id="cEng"></div></div>
 <div class="tab-content" id="tab-arrematacoes"><div id="cArr"></div></div>
 <div class="tab-content" id="tab-detalhamento"><div id="cDet"></div></div>
+<div class="tab-content" id="tab-nps"><div id="cNPS"></div></div>
 <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo · Bruno Lucarelli</div>
 </div>
 <script>
@@ -291,7 +293,7 @@ async function loadData(){
     const r=await fetch(API_URL);
     const D=await r.json();
     if(D.error)throw new Error(D.error);
-    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NOW=D.todayMs;
+    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];NOW=D.todayMs;
     
     // Build sets de arrematadores (da aba Controle de arrematação) — mesmos filtros do getFA
     arrNomesSet=new Set();
@@ -334,7 +336,7 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 function hbarTip(e,el){const l=el.dataset.hlbl,c=el.dataset.hcnt,p=el.dataset.hpct;let h='<div class="tt-title">'+l+'</div><div class="tt-row"><span class="tt-label">Quantidade:</span><span class="tt-value">'+c+'</span></div>';if(p)h+='<div class="tt-row"><span class="tt-label">% do total:</span><span class="tt-value">'+p+'</span></div>';showTip(e,h);}
 
 
-let CS=[],CK=[],AR=[],DV=[],AV=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set();
+let CS=[],CK=[],AR=[],DV=[],AV=[],NPS=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set();
 const fN=n=>n.toLocaleString('pt-BR');
 const fR=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fP=n=>n.toFixed(1).replace('.',',')+' %';
@@ -952,16 +954,33 @@ function renderAll(cs){
 
   // ===== DETALHAMENTO DO ALUNO =====
   renderDetalhamento(cs);
+
+  // ===== NPS =====
+  renderNPS();
 }
 
 let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
 function renderDetalhamento(cs){
+  // Contar arrematações por nome (normalizado) a partir da variável AR
+  const arrCountMap={};
+  AR.forEach(a=>{
+    if(!a.nome)return;
+    const nn=normNome(a.nome);
+    // Considerar apenas arrematações válidas (mesma lógica do getFA)
+    if((a.nome||'').toLowerCase().includes('grupo'))return;
+    const val=(a.validade||'').toString().trim();
+    if(val&&val!=='Válido')return;
+    if(!normTurma(a))return;
+    arrCountMap[nn]=(arrCountMap[nn]||0)+1;
+  });
   _detData=cs.map(r=>{
     const nt=normTurmaStr(r.turma)||'-';
     const prog=r.progresso!=null?r.progresso:0;
-    const aulas=r.aulasCompletas!=null?r.aulasCompletas:0;
-    const totalA=r.totalAulas||0;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
+    // Contar arrematações do aluno
+    const nn=normNome(r.nome);
+    const arrCount=arrCountMap[nn]||0;
+    const arrStr=arrCount>0?(arrCount===1?'1 arrematação':arrCount+' arrematações'):'—';
     // Respondeu = coluna AB (mensagemAluno) tem conteúdo
     // Contar respostas das 4 colunas: Respondeu Onboarding, Tarefas S1, Tarefas S2, Tarefas S3
     let _resCount=0;
@@ -972,7 +991,7 @@ function renderDetalhamento(cs){
     const respondeu=_resCount;
     return{
       nome:r.nome||'-',turma:nt,prog:prog,
-      aulas:aulas,totalAulas:totalA,aulasStr:aulas+'/'+totalA,
+      arrCount:arrCount,arrStr:arrStr,
       ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',
       respondeu:respondeu,respondeuCount:respondeu
     };
@@ -1003,7 +1022,7 @@ function drawDetTable(fromSearch){
     {key:'nome',label:'ALUNO'},
     {key:'turma',label:'TURMA'},
     {key:'prog',label:'PROGRESSO'},
-    {key:'aulas',label:'AULAS COMPLETAS'},
+    {key:'arrCount',label:'ARREMATAÇÕES'},
     {key:'ultAcessoStr',label:'ÚLTIMO ACESSO'},
     {key:'respondeu',label:'RESPONDEU (0-4)'}
   ];
@@ -1016,10 +1035,9 @@ function drawDetTable(fromSearch){
     // Progresso bar
     const pCol=r.prog>70?'var(--green)':r.prog>30?'var(--gold)':'var(--red)';
     d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+r.prog+'%;background:'+pCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.prog+'%</span></div></td>';
-    // Aulas completas
-    const aPct=r.totalAulas>0?rd(r.aulas/r.totalAulas*100):0;
-    const aCol=aPct>70?'var(--green)':aPct>30?'var(--gold)':'var(--red)';
-    d+='<td><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:'+aPct+'%;background:'+aCol+'"></div></div><span style="font-family:JetBrains Mono;font-size:12px">'+r.aulasStr+'</span></div></td>';
+    // Arrematações
+    const arrCol=r.arrCount>0?'var(--green)':'var(--t3)';
+    d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+arrCol+';font-weight:'+(r.arrCount>0?'600':'400')+'">'+r.arrStr+'</td>';
     // Último Acesso
     const uCol=r.ultAcesso?'var(--t2)':'var(--red)';
     d+='<td style="font-family:JetBrains Mono;font-size:12px;color:'+uCol+'">'+r.ultAcessoStr+'</td>';
@@ -1041,5 +1059,123 @@ function drawDetTable(fromSearch){
 }
 function detSort(key){if(_detSort===key)_detDir*=-1;else{_detSort=key;_detDir=1;}_detPage=0;drawDetTable(false);}
 function detPage(p){_detPage=p;drawDetTable(false);}
+
+function renderNPS(){
+  // Filtrar NPS por turmas selecionadas
+  const ft=getMS('fTurma');
+  let npsData=NPS.slice();
+  if(ft.length){
+    npsData=npsData.filter(r=>{
+      const nt=normTurmaStr(r.turma);
+      return nt&&ft.includes(nt);
+    });
+  }
+  const total=npsData.length;
+  if(!total){document.getElementById('cNPS').innerHTML='<div style="color:var(--t3);padding:40px;text-align:center">Sem dados de NPS</div>';return;}
+
+  // NPS Score (baseado na nota "Indicaria a Mentoria" - col F)
+  const indicariaResps=npsData.filter(r=>r.notaIndicaria!=null);
+  let promotores=0,neutros=0,detratores=0;
+  indicariaResps.forEach(r=>{
+    if(r.notaIndicaria>=9)promotores++;
+    else if(r.notaIndicaria>=7)neutros++;
+    else detratores++;
+  });
+  const totalInd=indicariaResps.length;
+  const pctProm=totalInd?rd(promotores/totalInd*100):0;
+  const pctNeut=totalInd?rd(neutros/totalInd*100):0;
+  const pctDet=totalInd?rd(detratores/totalInd*100):0;
+  const npsScore=totalInd?Math.round(pctProm-pctDet):0;
+  const npsColor=npsScore>50?'var(--green)':npsScore>=0?'var(--gold)':'var(--red)';
+  const npsBg=npsScore>50?'linear-gradient(90deg,var(--green),var(--teal))':npsScore>=0?'linear-gradient(90deg,var(--gold),var(--orange))':'linear-gradient(90deg,var(--red),var(--pink))';
+
+  // Nota média da Mentoria (col G)
+  const mentoriaResps=npsData.filter(r=>r.notaMentoria!=null);
+  const avgMentoria=mentoriaResps.length?rd(avg(mentoriaResps.map(r=>r.notaMentoria))):0;
+
+  let h='<div class="sec">📊 NPS — Net Promoter Score</div>';
+  h+='<div class="kpis">';
+  // NPS Score KPI com tooltip explicativo
+  const npsTip='<div class=tt-title>NPS Score</div><div class=tt-row><span class=tt-label>Score:</span><span class=tt-value>'+npsScore+'</span></div><div class=tt-row><span class=tt-label>Cálculo:</span><span class=tt-value>% Promotores - % Detratores</span></div><div class=tt-row><span class=tt-label>Promotores (9-10):</span><span class=tt-value>'+promotores+' ('+fP(pctProm)+')</span></div><div class=tt-row><span class=tt-label>Neutros (7-8):</span><span class=tt-value>'+neutros+' ('+fP(pctNeut)+')</span></div><div class=tt-row><span class=tt-label>Detratores (0-6):</span><span class=tt-value>'+detratores+' ('+fP(pctDet)+')</span></div><div class=tt-row><span class=tt-label>Respostas:</span><span class=tt-value>'+totalInd+'</span></div>';
+  h+='<div class="kpi" onmouseenter="showTip(event,\''+npsTip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+npsTip.replace(/'/g,'')+'\')" onmouseleave="hideTip()"><div class="kpi-bar" style="background:'+npsBg+'"></div><div class="kpi-l">NPS Score <span style="font-size:10px;color:var(--t3);cursor:help" title="NPS = Net Promoter Score. Calculado: (% Promotores - % Detratores). Promotores: nota 9-10, Neutros: 7-8, Detratores: 0-6">ℹ️</span></div><div class="kpi-v" style="color:'+npsColor+'">'+npsScore+'</div><div class="kpi-s">'+totalInd+' respostas</div></div>';
+  h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Nota Média Mentoria',avgMentoria.toFixed(1).replace('.',','),mentoriaResps.length+' respostas','var(--accent)');
+  h+=kpi('linear-gradient(90deg,var(--teal),var(--green))','Total de Respostas NPS',fN(total),'','var(--teal)');
+  h+='</div>';
+
+  // Promotores / Neutros / Detratores KPIs
+  h+='<div class="kpis">';
+  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Promotores (9-10)',fN(promotores),fP(pctProm)+' do total','var(--green)');
+  h+=kpi('linear-gradient(90deg,var(--gold),var(--orange))','Neutros (7-8)',fN(neutros),fP(pctNeut)+' do total','var(--gold)');
+  h+=kpi('linear-gradient(90deg,var(--red),var(--pink))','Detratores (0-6)',fN(detratores),fP(pctDet)+' do total','var(--red)');
+  h+='</div>';
+
+  // Gráfico de distribuição de notas (Nota da Mentoria - col G, tem mais dados)
+  h+='<div class="sec">📊 Distribuição de Notas da Mentoria</div>';
+  h+='<div class="g2"><div class="card"><h3>Notas de 0 a 10</h3><div class="d">Distribuição das notas da Mentoria ('+mentoriaResps.length+' respostas)</div>';
+  const notaDist={};
+  for(let n=0;n<=10;n++)notaDist[n]=0;
+  mentoriaResps.forEach(r=>{const n=Math.round(r.notaMentoria);if(n>=0&&n<=10)notaDist[n]++;});
+  const notaItems=[];
+  for(let n=10;n>=0;n--){notaItems.push(['Nota '+n,notaDist[n]]);}
+  const notaColor=function(n){return n>=9?'var(--green)':n>=7?'var(--gold)':'var(--red)';};
+  // Custom hbar with colored bars
+  const mxN=Math.max(...Object.values(notaDist),1);
+  notaItems.forEach(([lbl,cnt])=>{
+    const nota=parseInt(lbl.replace('Nota ',''));
+    const w=Math.max(Math.round(cnt/mxN*100),3);
+    const col=notaColor(nota);
+    const pct=mentoriaResps.length?fP(rd(cnt/mentoriaResps.length*100)):'';
+    h+='<div class="hbar-row" onmouseenter="showTip(event,\'<div class=tt-title>'+lbl+'</div><div class=tt-row><span class=tt-label>Respostas:</span><span class=tt-value>'+fN(cnt)+'</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+pct+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>'+lbl+'</div><div class=tt-row><span class=tt-label>Respostas:</span><span class=tt-value>'+fN(cnt)+'</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+pct+'</span></div>\')" onmouseleave="hideTip()"><span class="hbar-lbl">'+lbl+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+col+'">'+fN(cnt)+'</div></div>'+(pct?'<span class="hbar-pct">'+pct+'</span>':'')+'</div>';
+  });
+  h+='</div>';
+
+  // Donut NPS breakdown
+  h+='<div class="card"><h3>Classificação NPS</h3><div class="d">Indicaria a Mentoria ('+totalInd+' respostas)</div>';
+  if(totalInd>0){
+    h+=multiD({Promotores:promotores,Neutros:neutros,Detratores:detratores},{Promotores:'var(--green)',Neutros:'var(--gold)',Detratores:'var(--red)'});
+  } else {
+    h+='<div style="color:var(--t3);padding:20px">Sem respostas de indicação</div>';
+  }
+  h+='</div></div>';
+
+  // Pontos Fortes e Pontos de Melhoria
+  h+='<div class="sec">💬 Feedback dos Alunos</div>';
+  h+='<div class="g2">';
+
+  // Pontos Fortes - 5 mais recentes
+  h+='<div class="card"><h3>Pontos Fortes</h3><div class="d">5 respostas mais recentes</div>';
+  const fortes=npsData.filter(r=>r.pontosFortes).sort((a,b)=>(b.data||0)-(a.data||0)).slice(0,5);
+  if(fortes.length){
+    fortes.forEach(r=>{
+      const nt=normTurmaStr(r.turma)||'';
+      h+='<div style="padding:12px 0;border-bottom:1px solid var(--border)">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-weight:600;color:var(--t1);font-size:13px">'+r.nome+'</span>'+(nt?'<span style="font-size:11px;color:var(--t3);background:var(--bg);padding:2px 8px;border-radius:8px">'+nt+'</span>':'')+'</div>';
+      h+='<div style="color:var(--t2);font-size:13px;line-height:1.5">'+r.pontosFortes+'</div>';
+      h+='</div>';
+    });
+  } else {
+    h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';
+  }
+  h+='</div>';
+
+  // Pontos de Melhoria - 5 mais recentes
+  h+='<div class="card"><h3>Pontos de Melhoria</h3><div class="d">5 respostas mais recentes</div>';
+  const melhoria=npsData.filter(r=>r.pontosMelhoria).sort((a,b)=>(b.data||0)-(a.data||0)).slice(0,5);
+  if(melhoria.length){
+    melhoria.forEach(r=>{
+      const nt=normTurmaStr(r.turma)||'';
+      h+='<div style="padding:12px 0;border-bottom:1px solid var(--border)">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-weight:600;color:var(--t1);font-size:13px">'+r.nome+'</span>'+(nt?'<span style="font-size:11px;color:var(--t3);background:var(--bg);padding:2px 8px;border-radius:8px">'+nt+'</span>':'')+'</div>';
+      h+='<div style="color:var(--t2);font-size:13px;line-height:1.5">'+r.pontosMelhoria+'</div>';
+      h+='</div>';
+    });
+  } else {
+    h+='<div style="color:var(--t3);padding:20px">Sem respostas</div>';
+  }
+  h+='</div>';
+
+  h+='</div>';
+  document.getElementById('cNPS').innerHTML=h;
+}
 
 </script></body></html>
