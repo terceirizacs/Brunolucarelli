@@ -1129,37 +1129,27 @@ function renderNPS(){
   });
   h+='</div>';
 
-  // Classificação NPS - card grande
-  h+='</div>';
-  h+='<div class="card" style="margin-bottom:20px"><h3>Classificação NPS</h3><div class="d">Indicaria a Mentoria — '+totalInd+' respostas</div>';
+  // Classificação NPS - ao lado das notas (dentro do g2)
+  var npsTipDonut='<div class=tt-title>Classificação NPS: '+npsScore+'</div><div class=tt-row><span class=tt-label>Promotores (9-10):</span><span class=tt-value>'+fN(promotores)+' ('+fP(pctProm)+')</span></div><div class=tt-row><span class=tt-label>Neutros (7-8):</span><span class=tt-value>'+fN(neutros)+' ('+fP(pctNeut)+')</span></div><div class=tt-row><span class=tt-label>Detratores (0-6):</span><span class=tt-value>'+fN(detratores)+' ('+fP(pctDet)+')</span></div><div class=tt-row><span class=tt-label>Total:</span><span class=tt-value>'+fN(totalInd)+' respostas</span></div>';
+  h+='<div class="card"><h3>Classificação NPS</h3><div class="d">Indicaria a Mentoria — '+totalInd+' respostas</div>';
   if(totalInd>0){
     var degProm=Math.round(pctProm/100*360);
     var degNeut=Math.round(pctNeut/100*360);
     var conic='var(--green) 0deg '+degProm+'deg,var(--gold) '+degProm+'deg '+(degProm+degNeut)+'deg,var(--red) '+(degProm+degNeut)+'deg 360deg';
-    h+='<div style="display:flex;align-items:center;gap:40px;justify-content:center;padding:24px 0;flex-wrap:wrap">';
-    // Donut grande
-    h+='<div style="width:200px;height:200px;border-radius:50%;background:conic-gradient('+conic+');display:flex;align-items:center;justify-content:center;flex-shrink:0">';
-    h+='<div style="width:130px;height:130px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column">';
-    h+='<div style="font-family:JetBrains Mono;font-weight:800;font-size:36px;color:'+npsColor+'">'+npsScore+'</div>';
-    h+='<div style="font-size:12px;color:var(--t3);font-weight:600">NPS Score</div>';
+    h+='<div class="donut-area">';
+    h+='<div class="donut-ring" style="width:180px;height:180px;background:conic-gradient('+conic+');cursor:pointer" onmouseenter="showTip(event,\''+npsTipDonut.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+npsTipDonut.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
+    h+='<div style="width:110px;height:110px;background:var(--donut-hole);border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none;flex-direction:column">';
+    h+='<div class="donut-center"><div class="donut-v" style="color:'+npsColor+';font-size:28px">'+npsScore+'</div><div class="donut-lbl">NPS</div></div>';
     h+='</div></div>';
-    // Legenda detalhada
-    h+='<div style="display:flex;flex-direction:column;gap:16px">';
-    h+='<div style="display:flex;align-items:center;gap:12px"><div style="width:16px;height:16px;border-radius:4px;background:var(--green);flex-shrink:0"></div><div><div style="font-size:14px;font-weight:700;color:var(--green)">Promotores (9-10)</div><div style="font-family:JetBrains Mono;font-size:20px;font-weight:700;color:var(--t1)">'+fN(promotores)+' <span style="font-size:14px;color:var(--t3)">('+fP(pctProm)+')</span></div></div></div>';
-    h+='<div style="display:flex;align-items:center;gap:12px"><div style="width:16px;height:16px;border-radius:4px;background:var(--gold);flex-shrink:0"></div><div><div style="font-size:14px;font-weight:700;color:var(--gold)">Neutros (7-8)</div><div style="font-family:JetBrains Mono;font-size:20px;font-weight:700;color:var(--t1)">'+fN(neutros)+' <span style="font-size:14px;color:var(--t3)">('+fP(pctNeut)+')</span></div></div></div>';
-    h+='<div style="display:flex;align-items:center;gap:12px"><div style="width:16px;height:16px;border-radius:4px;background:var(--red);flex-shrink:0"></div><div><div style="font-size:14px;font-weight:700;color:var(--red)">Detratores (0-6)</div><div style="font-family:JetBrains Mono;font-size:20px;font-weight:700;color:var(--t1)">'+fN(detratores)+' <span style="font-size:14px;color:var(--t3)">('+fP(pctDet)+')</span></div></div></div>';
+    h+='<div class="donut-legend">';
+    h+='<span style="cursor:pointer" onmouseenter="showTip(event,\'<div class=tt-title>Promotores</div><div class=tt-row><span class=tt-label>Nota 9-10:</span><span class=tt-value>'+fN(promotores)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctProm)+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>Promotores</div><div class=tt-row><span class=tt-label>Nota 9-10:</span><span class=tt-value>'+fN(promotores)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctProm)+'</span></div>\')" onmouseleave="hideTip()"><i style="background:var(--green)"></i>Promotores ('+fN(promotores)+' · '+fP(pctProm)+')</span>';
+    h+='<span style="cursor:pointer" onmouseenter="showTip(event,\'<div class=tt-title>Neutros</div><div class=tt-row><span class=tt-label>Nota 7-8:</span><span class=tt-value>'+fN(neutros)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctNeut)+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>Neutros</div><div class=tt-row><span class=tt-label>Nota 7-8:</span><span class=tt-value>'+fN(neutros)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctNeut)+'</span></div>\')" onmouseleave="hideTip()"><i style="background:var(--gold)"></i>Neutros ('+fN(neutros)+' · '+fP(pctNeut)+')</span>';
+    h+='<span style="cursor:pointer" onmouseenter="showTip(event,\'<div class=tt-title>Detratores</div><div class=tt-row><span class=tt-label>Nota 0-6:</span><span class=tt-value>'+fN(detratores)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctDet)+'</span></div>\')" onmousemove="showTip(event,\'<div class=tt-title>Detratores</div><div class=tt-row><span class=tt-label>Nota 0-6:</span><span class=tt-value>'+fN(detratores)+' alunos</span></div><div class=tt-row><span class=tt-label>% do total:</span><span class=tt-value>'+fP(pctDet)+'</span></div>\')" onmouseleave="hideTip()"><i style="background:var(--red)"></i>Detratores ('+fN(detratores)+' · '+fP(pctDet)+')</span>';
     h+='</div></div>';
-    // Barra horizontal consolidada
-    h+='<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:8px">';
-    if(pctProm>0)h+='<div style="width:'+pctProm+'%;background:var(--green)" title="Promotores: '+fP(pctProm)+'"></div>';
-    if(pctNeut>0)h+='<div style="width:'+pctNeut+'%;background:var(--gold)" title="Neutros: '+fP(pctNeut)+'"></div>';
-    if(pctDet>0)h+='<div style="width:'+pctDet+'%;background:var(--red)" title="Detratores: '+fP(pctDet)+'"></div>';
-    h+='</div>';
-    h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-top:4px"><span>Detratores</span><span>Neutros</span><span>Promotores</span></div>';
   } else {
     h+='<div style="color:var(--t3);padding:40px;text-align:center">Sem respostas de indicação para esta turma</div>';
   }
-  h+='</div>';
+  h+='</div></div>';
 
   // Categorização automática de Pontos Fortes e Melhoria
   function categorizarTextos(textos,categorias){
