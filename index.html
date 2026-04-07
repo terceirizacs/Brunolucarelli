@@ -961,8 +961,9 @@ function renderAll(cs){
 
 let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
 function renderDetalhamento(cs){
-  // Contar arrematações por nome (normalizado) a partir da variável AR
+  // Contar arrematações por nome e email (normalizado) a partir da variável AR
   const arrCountMap={};
+  const arrCountByEmail={};
   AR.forEach(a=>{
     if(!a.nome)return;
     const nn=normNome(a.nome);
@@ -972,14 +973,15 @@ function renderDetalhamento(cs){
     if(val&&val!=='Válido')return;
     if(!normTurma(a))return;
     arrCountMap[nn]=(arrCountMap[nn]||0)+1;
+    if(a.email)arrCountByEmail[a.email]=(arrCountByEmail[a.email]||0)+1;
   });
   _detData=cs.map(r=>{
     const nt=normTurmaStr(r.turma)||'-';
     const prog=r.progresso!=null?r.progresso:0;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
-    // Contar arrematações do aluno
+    // Contar arrematações do aluno (por nome ou email como fallback)
     const nn=normNome(r.nome);
-    const arrCount=arrCountMap[nn]||0;
+    const arrCount=arrCountMap[nn]||(r.email?arrCountByEmail[r.email]:0)||0;
     const arrStr=arrCount>0?(arrCount===1?'1 arrematação':arrCount+' arrematações'):'—';
     // Respondeu = coluna AB (mensagemAluno) tem conteúdo
     // Contar respostas das 4 colunas: Respondeu Onboarding, Tarefas S1, Tarefas S2, Tarefas S3
@@ -1093,6 +1095,15 @@ function renderNPS(){
   const mentoriaResps=npsData.filter(r=>r.notaMentoria!=null);
   const avgMentoria=mentoriaResps.length?rd(avg(mentoriaResps.map(r=>r.notaMentoria))):0;
 
+  // Contar total de alunos nas turmas selecionadas (para % de resposta)
+  let totalAlunosTurma=0;
+  if(ft.length){
+    totalAlunosTurma=CS.filter(r=>{const nt=normTurmaStr(r.turma);return nt&&ft.includes(nt);}).length;
+  } else {
+    totalAlunosTurma=CS.length;
+  }
+  const pctResposta=totalAlunosTurma>0?rd(total/totalAlunosTurma*100):0;
+
   let h='<div class="sec">📊 NPS — Net Promoter Score</div>';
   h+='<div class="kpis">';
   // NPS Score KPI com tooltip explicativo
@@ -1100,6 +1111,8 @@ function renderNPS(){
   h+='<div class="kpi" onmouseenter="showTip(event,\''+npsTip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+npsTip.replace(/'/g,'')+'\')" onmouseleave="hideTip()"><div class="kpi-bar" style="background:'+npsBg+'"></div><div class="kpi-l">NPS Score <span style="font-size:10px;color:var(--t3);cursor:help" title="NPS = Net Promoter Score. Calculado: (% Promotores - % Detratores). Promotores: nota 9-10, Neutros: 7-8, Detratores: 0-6">ℹ️</span></div><div class="kpi-v" style="color:'+npsColor+'">'+npsScore+'</div><div class="kpi-s">'+totalInd+' respostas</div></div>';
   h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Nota Média Mentoria',avgMentoria.toFixed(1).replace('.',','),mentoriaResps.length+' respostas','var(--accent)');
   h+=kpi('linear-gradient(90deg,var(--teal),var(--green))','Total de Respostas NPS',fN(total),'','var(--teal)');
+  h+=kpi('linear-gradient(90deg,var(--sky),var(--cyan))','Alunos na Turma',fN(totalAlunosTurma),'total de alunos','var(--sky)');
+  h+=kpi('linear-gradient(90deg,var(--orange),var(--gold))','% de Resposta',fP(pctResposta),fN(total)+' de '+fN(totalAlunosTurma)+' alunos','var(--orange)');
   h+='</div>';
 
   // Promotores / Neutros / Detratores KPIs
@@ -1178,7 +1191,7 @@ function renderNPS(){
 
   var catMelhoria=categorizarTextos(textosMl,{
     'Mais tempo / prazo da mentoria':['tempo','prazo','duração','duracao','extensão','mais encontro','meses'],
-    'Mais presença do Bruno':['bruno','presença','presenca','aparecer','mentor'],
+    'Mais presença do Bruno':['presença do bruno','presenca do bruno','bruno mais presente','mais presente','aparecer mais','falta do bruno','bruno aparecer'],
     'Aulas ao vivo / mais lives':['ao vivo','live','lives','aula ao vivo'],
     'Checklist / PDF de referência':['checklist','pdf','material','documento','planilha','referência'],
     'Alinhamento venda × entrega':['venda','promess','prometido','entrega','venderam','alinhamento'],
