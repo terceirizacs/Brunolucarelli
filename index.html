@@ -609,12 +609,14 @@ function renderAll(cs){
       {cKey:'conteudoS3',tKey:'tarefasS3',label:'S3'}
     ];
     const csNewData=csNewCols.map(col=>{
-      let cResp=0,tResp=0;
+      let cSim=0,cNao=0,tSim=0,tNao=0;
       cs.forEach(r=>{
-        if(r[col.cKey]&&String(r[col.cKey]).trim())cResp++;
-        if(r[col.tKey]&&String(r[col.tKey]).trim())tResp++;
+        const cv=String(r[col.cKey]||'').trim().toLowerCase();
+        const tv=String(r[col.tKey]||'').trim().toLowerCase();
+        if(cv==='sim')cSim++;else if(cv&&cv!=='')cNao++;
+        if(tv==='sim')tSim++;else if(tv&&tv!=='')tNao++;
       });
-      return{label:col.label,cResp,tResp,hasData:cResp>0||tResp>0};
+      return{label:col.label,cSim,cNao,tSim,tNao,cTotal:cSim+cNao,tTotal:tSim+tNao,hasData:(cSim+cNao)>0||(tSim+tNao)>0};
     });
     const hasNewData=csNewData.some(d=>d.hasData);
 
@@ -650,16 +652,16 @@ function renderAll(cs){
       csNewData.forEach(d=>{
         if(!d.hasData)return;
         e+='<div class="g2">';
-        if(d.cResp>0){
-          const cp=total?rd(d.cResp/total*100):0;
-          e+='<div class="card"><h3>Conte\u00fado '+d.label+'</h3><div class="d">'+d.cResp+' de '+fN(total)+' responderam \u00b7 Taxa de resposta: '+fP(cp)+'</div><div class="donut-area">';
-          e+=donut2('var(--teal)',Math.round(cp/100*360),'var(--red)',fP(cp),'responderam','Sim',d.cResp,'var(--teal)','N\u00e3o',(total-d.cResp),'var(--red)');
+        if(d.cTotal>0){
+          const cp=rd(d.cSim/d.cTotal*100);
+          e+='<div class="card"><h3>Conte\u00fado '+d.label+'</h3><div class="d">'+d.cSim+' Sim e '+d.cNao+' N\u00e3o de '+fN(d.cTotal)+' respostas</div><div class="donut-area">';
+          e+=donut2('var(--teal)',Math.round(cp/100*360),'var(--red)',fP(cp),'Sim','Sim',d.cSim,'var(--teal)','N\u00e3o',d.cNao,'var(--red)');
           e+='</div></div>';
         }
-        if(d.tResp>0){
-          const tp2=total?rd(d.tResp/total*100):0;
-          e+='<div class="card"><h3>Tarefas '+d.label+'</h3><div class="d">'+d.tResp+' de '+fN(total)+' responderam \u00b7 Taxa de resposta: '+fP(tp2)+'</div><div class="donut-area">';
-          e+=donut2('var(--accent)',Math.round(tp2/100*360),'var(--red)',fP(tp2),'responderam','Sim',d.tResp,'var(--accent)','N\u00e3o',(total-d.tResp),'var(--red)');
+        if(d.tTotal>0){
+          const tp2=rd(d.tSim/d.tTotal*100);
+          e+='<div class="card"><h3>Tarefas '+d.label+'</h3><div class="d">'+d.tSim+' Sim e '+d.tNao+' N\u00e3o de '+fN(d.tTotal)+' respostas</div><div class="donut-area">';
+          e+=donut2('var(--accent)',Math.round(tp2/100*360),'var(--red)',fP(tp2),'Sim','Sim',d.tSim,'var(--accent)','N\u00e3o',d.tNao,'var(--red)');
           e+='</div></div>';
         }
         e+='</div>';
