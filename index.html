@@ -602,23 +602,41 @@ function renderAll(cs){
     const allTaskNums=Object.keys(tWeeks).map(k=>parseInt(k.replace('t',''))).sort((a,b)=>a-b);
     const allNums=[...new Set([...allWeekNums,...allTaskNums])].sort((a,b)=>a-b);
 
-    // Contar dados das novas colunas (Conteúdo S1-S3, Tarefas S1-S3)
-    const csNewCols=[
-      {cKey:'conteudoS1',tKey:'tarefasS1',label:'S1'},
-      {cKey:'conteudoS2',tKey:'tarefasS2',label:'S2'},
-      {cKey:'conteudoS3',tKey:'tarefasS3',label:'S3'}
-    ];
-    const csNewData=csNewCols.map(col=>{
-      let cSim=0,cNao=0,tSim=0,tNao=0;
+    // Separar alunos por turma: <20 usa Tarefas S1-S3, >=20 usa Prova 1/2/3
+    const csOld=cs.filter(r=>{const nt=normTurmaStr(r.turma);if(!nt)return true;const n=parseInt(nt.replace('T',''));return isNaN(n)||n<20;});
+    const csNew20=cs.filter(r=>{const nt=normTurmaStr(r.turma);if(!nt)return false;const n=parseInt(nt.replace('T',''));return n>=20;});
+
+    // Conteúdo S1-S3 (todos os alunos)
+    const csConteudoCols=[{cKey:'conteudoS1',label:'S1'},{cKey:'conteudoS2',label:'S2'},{cKey:'conteudoS3',label:'S3'}];
+    const csConteudoData=csConteudoCols.map(col=>{
+      let cSim=0,cNao=0;
       cs.forEach(r=>{
         const cv=String(r[col.cKey]||'').trim().toLowerCase();
-        const tv=String(r[col.tKey]||'').trim().toLowerCase();
         if(cv==='sim')cSim++;else if(cv&&cv!=='')cNao++;
+      });
+      return{label:col.label,cSim,cNao,cTotal:cSim+cNao,hasData:(cSim+cNao)>0};
+    });
+
+    // Tarefas S1-S3 (turmas < 20)
+    const csTarefaCols=[{tKey:'tarefasS1',label:'S1'},{tKey:'tarefasS2',label:'S2'},{tKey:'tarefasS3',label:'S3'}];
+    const csTarefaData=csTarefaCols.map(col=>{
+      let tSim=0,tNao=0;
+      csOld.forEach(r=>{
+        const tv=String(r[col.tKey]||'').trim().toLowerCase();
         if(tv==='sim')tSim++;else if(tv&&tv!=='')tNao++;
       });
-      return{label:col.label,cSim,cNao,tSim,tNao,cTotal:cSim+cNao,tTotal:tSim+tNao,hasData:(cSim+cNao)>0||(tSim+tNao)>0};
+      return{label:col.label,tSim,tNao,tTotal:tSim+tNao,hasData:(tSim+tNao)>0};
     });
-    const hasNewData=csNewData.some(d=>d.hasData);
+
+    // Provas 1-3 (turmas >= 20)
+    const provaKeys=[{key:'prova1',label:'Prova 1'},{key:'prova2',label:'Prova 2'},{key:'prova3',label:'Prova 3'}];
+    const provaData=provaKeys.map(p=>{
+      let fez=0,naoFez=0;
+      csNew20.forEach(r=>{if(r[p.key])fez++;else naoFez++;});
+      return{label:p.label,fez,naoFez,total:fez+naoFez,hasData:csNew20.length>0};
+    });
+
+    const hasNewData=csConteudoData.some(d=>d.hasData)||csTarefaData.some(d=>d.hasData)||provaData.some(d=>d.hasData);
 
     if(allNums.length||hasNewData){
       e+='<div class="sec">📅 Semanas e Tarefas</div>';
@@ -648,24 +666,32 @@ function renderAll(cs){
         e+='</div>';
       });
 
-      // Render new Planilha CS columns (Conteúdo S1-S3, Tarefas S1-S3) — só as que tem dados
-      csNewData.forEach(d=>{
-        if(!d.hasData)return;
+      // Render Conteúdo S1-S3 (todos) + Tarefas S1-S3 (turmas <20) ou Provas 1-3 (turmas >=20)
+      for(let i=0;i<3;i++){
+        const cd=csConteudoData[i],td=csTarefaData[i],pd=provaData[i];
+        const hasC=cd.cTotal>0,hasT=td.tTotal>0,hasP=pd.total>0&&csNew20.length>0;
+        if(!hasC&&!hasT&&!hasP)continue;
         e+='<div class="g2">';
-        if(d.cTotal>0){
-          const cp=rd(d.cSim/d.cTotal*100);
-          e+='<div class="card"><h3>Conte\u00fado '+d.label+'</h3><div class="d">'+d.cSim+' Sim e '+d.cNao+' N\u00e3o de '+fN(d.cTotal)+' respostas</div><div class="donut-area">';
-          e+=donut2('var(--teal)',Math.round(cp/100*360),'var(--red)',fP(cp),'Sim','Sim',d.cSim,'var(--teal)','N\u00e3o',d.cNao,'var(--red)');
+        if(hasC){
+          const cp=rd(cd.cSim/cd.cTotal*100);
+          e+='<div class="card"><h3>Conte\u00fado '+cd.label+'</h3><div class="d">'+cd.cSim+' Sim e '+cd.cNao+' N\u00e3o de '+fN(cd.cTotal)+' respostas</div><div class="donut-area">';
+          e+=donut2('var(--teal)',Math.round(cp/100*360),'var(--red)',fP(cp),'Sim','Sim',cd.cSim,'var(--teal)','N\u00e3o',cd.cNao,'var(--red)');
           e+='</div></div>';
         }
-        if(d.tTotal>0){
-          const tp2=rd(d.tSim/d.tTotal*100);
-          e+='<div class="card"><h3>Tarefas '+d.label+'</h3><div class="d">'+d.tSim+' Sim e '+d.tNao+' N\u00e3o de '+fN(d.tTotal)+' respostas</div><div class="donut-area">';
-          e+=donut2('var(--accent)',Math.round(tp2/100*360),'var(--red)',fP(tp2),'Sim','Sim',d.tSim,'var(--accent)','N\u00e3o',d.tNao,'var(--red)');
+        if(hasT){
+          const tp2=rd(td.tSim/td.tTotal*100);
+          e+='<div class="card"><h3>Tarefas '+td.label+'</h3><div class="d">'+td.tSim+' Sim e '+td.tNao+' N\u00e3o de '+fN(td.tTotal)+' respostas</div><div class="donut-area">';
+          e+=donut2('var(--accent)',Math.round(tp2/100*360),'var(--red)',fP(tp2),'Sim','Sim',td.tSim,'var(--accent)','N\u00e3o',td.tNao,'var(--red)');
+          e+='</div></div>';
+        }
+        if(hasP){
+          const pp=rd(pd.fez/pd.total*100);
+          e+='<div class="card"><h3>'+pd.label+'</h3><div class="d">'+pd.fez+' fizeram de '+fN(pd.total)+' alunos</div><div class="donut-area">';
+          e+=donut2('var(--accent)',Math.round(pp/100*360),'var(--red)',fP(pp),'fizeram','Fez',pd.fez,'var(--accent)','N\u00e3o fez',pd.naoFez,'var(--red)');
           e+='</div></div>';
         }
         e+='</div>';
-      });
+      }
     }
   }
   // Progresso
