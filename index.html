@@ -1068,17 +1068,14 @@ function renderRenov(){
 
   const fmt=ts=>{if(!ts)return '-';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
 
-  // Tabela de alunos
+  // Tabela de alunos — modelo Murilo
   const tableRows=[...allRows].sort((a,b)=>{
     if(RN_SORT==='nome') return RN_DIR*(a.c.nome||'').localeCompare(b.c.nome||'');
     if(RN_SORT==='turma') return RN_DIR*(a.turma||'').localeCompare(b.turma||'');
+    if(RN_SORT==='fim') return RN_DIR*((a.venc||0)-(b.venc||0));
     if(RN_SORT==='dias'){const da=a.dias===null?9999:a.dias;const db=b.dias===null?9999:b.dias;return RN_DIR*(da-db);}
     if(RN_SORT==='renov'){const va=a.renov?1:0,vb=b.renov?1:0;return RN_DIR*(vb-va);}
-    if(RN_SORT==='status'){
-      const sc=x=>x.renov?2:(x.inativo?0:1);
-      return RN_DIR*(sc(a)-sc(b));
-    }
-    return RN_DIR*(a.c.nome||'').localeCompare(b.c.nome||'');
+    return RN_DIR*(a.dias===null?9999:a.dias)-(b.dias===null?9999:b.dias);
   });
   const per=50,pages=Math.max(1,Math.ceil(tableRows.length/per));
   if(RN_PAGE>pages)RN_PAGE=1;
@@ -1089,23 +1086,27 @@ function renderRenov(){
     <thead><tr>
       <th style="cursor:pointer" onclick="rnSort('nome')">Aluno</th>
       <th style="cursor:pointer" onclick="rnSort('turma')">Turma</th>
-      <th style="text-align:right;cursor:pointer" onclick="rnSort('dias')">Validade</th>
+      <th style="text-align:right;cursor:pointer" onclick="rnSort('fim')">Fim Acesso</th>
+      <th style="text-align:right;cursor:pointer" onclick="rnSort('dias')">Dias restantes</th>
       <th style="cursor:pointer" onclick="rnSort('renov')">Renovação</th>
-      <th style="cursor:pointer" onclick="rnSort('status')">Status</th>
     </tr></thead>
     <tbody>${slice.map(x=>{
+      const venc=x.dias!==null&&x.dias<0;
       const renov=x.renov;
-      const vencido=x.dias!==null&&x.dias<0&&!renov;
-      const st=renov?'Renovado':(x.inativo?'Inativo':(vencido?'Vencido':(x.dias!==null&&x.dias<=90?'A vencer':'Vigente')));
-      const col=renov?'var(--green)':(x.inativo?'var(--red)':(vencido?'var(--red)':(x.dias!==null&&x.dias<=90?'var(--orange)':'var(--teal)')));
-      const bg=renov?'rgba(52,211,153,.12)':(x.inativo?'rgba(248,113,113,.12)':(vencido?'rgba(248,113,113,.12)':(x.dias!==null&&x.dias<=90?'rgba(251,146,60,.12)':'rgba(45,212,191,.12)')));
-      const diasTxt=x.inativo?'Inativo':(x.dias===null?'-':(x.dias<0?'Vencido':x.dias+'d'));
+      const st=renov?'Renovado':(x.inativo?'Vencido':(venc?'Vencido':''));
+      const col=renov?'var(--green)':(x.inativo||venc?'var(--red)':(x.dias!==null&&x.dias<=30?'var(--orange)':(x.dias!==null&&x.dias<=60?'var(--gold)':(x.dias!==null&&x.dias<=90?'var(--sky)':'var(--teal)'))));
+      const bg=renov?'rgba(52,211,153,.12)':(x.inativo||venc?'rgba(248,113,113,.12)':(x.dias!==null&&x.dias<=30?'rgba(251,146,60,.12)':(x.dias!==null&&x.dias<=60?'rgba(251,191,36,.12)':(x.dias!==null&&x.dias<=90?'rgba(56,189,248,.12)':'rgba(45,212,191,.12)'))));
+      const diasTxt=x.inativo?'-':(x.dias===null?'-':(venc?('-'+Math.abs(x.dias)+'d'):(x.dias+'d')));
+      const fimTxt=x.inativo?'Inativo':fmt(x.venc);
+      const renovTxt=renov?'Renovado':(x.inativo||venc?'Vencido':'-');
+      const renovCol=renov?'var(--green)':(x.inativo||venc?'var(--red)':'var(--t3)');
+      const renovBg=renov?'rgba(52,211,153,.12)':(x.inativo||venc?'rgba(248,113,113,.12)':'transparent');
       return `<tr>
         <td><div style="color:var(--t1);font-weight:600">${x.c.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${x.c.email||''}</div></td>
         <td style="font-size:12px">${x.turma||'-'}</td>
-        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px"><div>${x.inativo?'Inativo':fmt(x.venc)}</div><div style="font-size:10px;color:${col};font-weight:700">${diasTxt}</div></td>
-        <td style="font-size:12px">${x.c.renovou||'-'}</td>
-        <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${bg};color:${col}">${st}</span></td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${fimTxt}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${col}">${diasTxt}</td>
+        <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${renovBg};color:${renovCol}">${renovTxt}</span></td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>
