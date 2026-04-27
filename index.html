@@ -1011,7 +1011,7 @@ function renderRenov(){
     const isInativo=(c.validade||'').toLowerCase().trim()==='inativo';
     const renov=isRenov(c);
     const turma=c.turma||'';
-    const vTs=c.validadeTs;
+    const vTs=c.dtFim;
     const dias=vTs?Math.floor((vTs-hojeMs)/DAY):null;
     return {c,inativo:isInativo,renov,turma,dias,venc:vTs};
   });
