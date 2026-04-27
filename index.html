@@ -984,7 +984,7 @@ function renderAll(cs){
   document.getElementById('cArr').innerHTML=a;
 
   // ===== RENOVAÇÃO =====
-  renderRenov(cs);
+  renderRenov();
 
   // ===== DETALHAMENTO DO ALUNO =====
   renderDetalhamento(cs);
@@ -997,75 +997,39 @@ function renderAll(cs){
 let RN_PAGE=1,RN_SORT='dias',RN_DIR=1;
 const DAY=86400000;
 
-function renderRenov(cs){
+function renderRenov(){
   const cont=document.getElementById('cRenov');
-  const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
-
-  // Mapa via Dados Consolidados: turma original + validade (Inativo)
-  const consolidadoByEmail=new Map();
-  const consolidadoByNome=new Map();
-  CONSOLIDADO.forEach(c=>{
-    const obj={turma:c.turmaOriginal||'',validade:(c.validade||'').toLowerCase().trim()};
-    if(c.email) consolidadoByEmail.set(c.email,obj);
-    if(c.nome) consolidadoByNome.set(normNome(c.nome),obj);
-  });
-  function getConsolidado(r){
-    const email=(r.email||'').toLowerCase();
-    if(email&&consolidadoByEmail.has(email)) return consolidadoByEmail.get(email);
-    const nome=normNome(r.nome);
-    if(nome&&consolidadoByNome.has(nome)) return consolidadoByNome.get(nome);
-    return {turma:r.turma||'',validade:''};
+  if(!CONSOLIDADO.length){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:40px;color:var(--t2)">Dados de renovação não disponíveis. Verifique se o script GAS foi atualizado e reimplantado.</div>';
+    return;
   }
 
-  function isRenov(r){
-    const v=(r.renovou||'').toLowerCase().trim();
-    return v==='sim';
-  }
+  function isRenov(r){ return (r.renovou||'').toLowerCase().trim()==='sim'; }
 
-  const allRows=cs.map(r=>{
-    const cons=getConsolidado(r);
-    const turmaOrig=cons.turma;
-    const isInativo=cons.validade==='inativo';
-    const renov=isRenov(r);
-    const endDate=r.dtRenovacao;
-    let dias=null,venc=null;
-    if(endDate){
-      dias=Math.floor((endDate-hojeMs)/DAY);
-      venc=endDate;
-    } else if(isInativo){
-      dias=-1;
-    }
-    return {r,dias,venc,inativo:isInativo,renov,turmaOrig};
+  const allRows=CONSOLIDADO.map(c=>{
+    const isInativo=(c.validade||'').toLowerCase().trim()==='inativo';
+    const renov=isRenov(c);
+    const turma=c.turma||'';
+    return {c,inativo:isInativo,renov,turma};
   });
 
-  const totalBase=cs.length||1;
+  const totalBase=allRows.length;
   const jaRenovaram=allRows.filter(x=>x.renov);
+  const naoRenovaram=allRows.filter(x=>!x.renov);
   const vencidos=allRows.filter(x=>x.inativo&&!x.renov);
-  const ativosComData=allRows.filter(x=>x.dias!==null&&x.dias>=0&&!x.inativo);
-  const semData=allRows.filter(x=>x.dias===null&&!x.inativo);
-  const ativos=ativosComData.length+semData.length;
-  const vencidos90=allRows.filter(x=>x.inativo&&!x.renov);
-  const vencem30=allRows.filter(x=>x.dias!==null&&x.dias>=0&&x.dias<=30&&!x.inativo&&!x.renov);
-  const vencem60=allRows.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&!x.inativo&&!x.renov);
-  const vencem90=allRows.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&!x.inativo&&!x.renov);
-  const vencem120=allRows.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&!x.inativo&&!x.renov);
+  const ativos=allRows.filter(x=>!x.inativo);
 
   let h=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(ativos)}</div><div class="kpi-s">${fP(ativos/totalBase*100)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">${fN(totalBase)}</div><div class="kpi-s">Base completa</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(jaRenovaram.length/totalBase*100)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Inativo / acesso expirado</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Não Renovaram</div><div class="kpi-v">${fN(allRows.filter(x=>!x.renov).length)}</div><div class="kpi-s">Sem confirmação de renovação</div></div>
-  </div>
-  <div class="kpis" style="margin-top:12px">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 30 dias</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Ação urgente</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem 31-60 dias</div><div class="kpi-v">${fN(vencem60.length)}</div><div class="kpi-s">Planejar abordagem</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vencem 61-90 dias</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Aquecer contato</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--teal))"></div><div class="kpi-l">Vencem 91-120 dias</div><div class="kpi-v">${fN(vencem120.length)}</div><div class="kpi-s">Monitorar</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Não Renovaram</div><div class="kpi-v">${fN(naoRenovaram.length)}</div><div class="kpi-s">${fP(naoRenovaram.length/totalBase*100)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Inativos (Vencidos)</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">${fP(vencidos.length/totalBase*100)} da base</div></div>
   </div>`;
 
+  // Gráfico por turma
   const turmaMap=new Map();
   allRows.forEach(x=>{
-    const t=normTurmaStr(x.turmaOrig);
+    const t=normTurmaStr(x.turma);
     if(!t) return;
     if(!turmaMap.has(t)) turmaMap.set(t,{total:0,renov:0});
     const tm=turmaMap.get(t);
@@ -1082,7 +1046,7 @@ function renderRenov(cs){
     const maxPctRenov=Math.max(...turmaArr.map(([,v])=>v.total?v.renov/v.total*100:0),1);
     const colPalette=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
     h+=`<div class="sec">Percentual de Renovação por Turma</div>
-    <div class="card"><h3>Renovação por turma</h3><div class="d">Total: ${fN(jaRenovaram.length)} renovações (Sim na coluna T). Ordenado por turma.</div>
+    <div class="card"><h3>Renovação por turma</h3><div class="d">Base: ${fN(totalBase)} alunos (Dados Consolidados). ${fN(jaRenovaram.length)} renovações confirmadas.</div>
     <div class="hbar-area">
       ${turmaArr.map(([turma,v],i)=>{
         const pct=v.total?v.renov/v.total*100:0;
@@ -1100,19 +1064,19 @@ function renderRenov(cs){
     </div></div>`;
   }
 
-  const fmt=ts=>{if(!ts)return '-';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
-
+  // Tabela de alunos
   const tableRows=[...allRows].sort((a,b)=>{
-    if(RN_SORT==='nome') return RN_DIR*(a.r.nome||'').localeCompare(b.r.nome||'');
-    if(RN_SORT==='turma') return RN_DIR*(a.turmaOrig||'').localeCompare(b.turmaOrig||'');
-    if(RN_SORT==='fim') return RN_DIR*((a.venc||0)-(b.venc||0));
-    if(RN_SORT==='renov') return RN_DIR*(a.r.renovou||'').localeCompare(b.r.renovou||'');
+    if(RN_SORT==='nome') return RN_DIR*(a.c.nome||'').localeCompare(b.c.nome||'');
+    if(RN_SORT==='turma') return RN_DIR*(a.turma||'').localeCompare(b.turma||'');
+    if(RN_SORT==='renov'){
+      const va=a.renov?1:0,vb=b.renov?1:0;
+      return RN_DIR*(vb-va);
+    }
     if(RN_SORT==='status'){
-      const sc=x=>{if(x.renov)return 5;if(x.inativo)return 0;if(x.dias===null)return 3;if(x.dias<=30)return 1;if(x.dias<=60)return 2;return 4;};
+      const sc=x=>x.renov?2:(x.inativo?0:1);
       return RN_DIR*(sc(a)-sc(b));
     }
-    const da=a.dias===null?9999:a.dias;const db=b.dias===null?9999:b.dias;
-    return RN_DIR*(da-db);
+    return RN_DIR*(a.c.nome||'').localeCompare(b.c.nome||'');
   });
   const per=50,pages=Math.max(1,Math.ceil(tableRows.length/per));
   if(RN_PAGE>pages)RN_PAGE=1;
@@ -1123,25 +1087,18 @@ function renderRenov(cs){
     <thead><tr>
       <th style="cursor:pointer" onclick="rnSort('nome')">Aluno</th>
       <th style="cursor:pointer" onclick="rnSort('turma')">Turma</th>
-      <th style="text-align:right;cursor:pointer" onclick="rnSort('fim')">Fim Acesso</th>
-      <th style="text-align:right;cursor:pointer" onclick="rnSort('dias')">Dias restantes</th>
       <th style="cursor:pointer" onclick="rnSort('renov')">Renovação</th>
       <th style="cursor:pointer" onclick="rnSort('status')">Status</th>
     </tr></thead>
     <tbody>${slice.map(x=>{
-      const r=x.r;
-      const venc=x.inativo||(x.dias!==null&&x.dias<0);
       const renov=x.renov;
-      const st=renov?'Renovado':(venc?'Vencido':(x.dias===null?'Sem data':(x.dias<=30?'Urgente':(x.dias<=60?'Atentar':(x.dias<=90?'Planejar':'Vigente')))));
-      const col=renov?'var(--green)':(venc?'var(--red)':(x.dias===null?'var(--t3)':(x.dias<=30?'var(--orange)':(x.dias<=60?'var(--gold)':(x.dias<=90?'var(--sky)':'var(--teal)')))));
-      const bg=renov?'rgba(52,211,153,.12)':(venc?'rgba(248,113,113,.12)':(x.dias===null?'rgba(148,163,184,.08)':(x.dias<=30?'rgba(251,146,60,.12)':(x.dias<=60?'rgba(251,191,36,.12)':(x.dias<=90?'rgba(56,189,248,.12)':'rgba(45,212,191,.12)')))));
-      const diasTxt=x.dias===null?'-':(venc?('-'+Math.abs(x.dias)+'d'):(x.dias+'d'));
+      const st=renov?'Renovado':(x.inativo?'Inativo':'Não renovou');
+      const col=renov?'var(--green)':(x.inativo?'var(--red)':'var(--orange)');
+      const bg=renov?'rgba(52,211,153,.12)':(x.inativo?'rgba(248,113,113,.12)':'rgba(251,146,60,.12)');
       return `<tr>
-        <td><div style="color:var(--t1);font-weight:600">${r.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${r.email||''}</div></td>
-        <td style="font-size:12px">${x.turmaOrig||'-'}</td>
-        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${x.inativo?'Inativo':fmt(x.venc)}</td>
-        <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${col}">${diasTxt}</td>
-        <td style="font-size:12px">${r.renovou||'-'}</td>
+        <td><div style="color:var(--t1);font-weight:600">${x.c.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${x.c.email||''}</div></td>
+        <td style="font-size:12px">${x.turma||'-'}</td>
+        <td style="font-size:12px">${x.c.renovou||'-'}</td>
         <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${bg};color:${col}">${st}</span></td>
       </tr>`;
     }).join('')}</tbody>
@@ -1149,17 +1106,17 @@ function renderRenov(cs){
   <div class="det-pager">${Array.from({length:pages},(_,i)=>i+1).filter(p=>p===1||p===pages||Math.abs(p-RN_PAGE)<=2).map(p=>`<button class="${p===RN_PAGE?'active':''}" onclick="rnGo(${p})">${p}</button>`).join('')}</div>
   </div>`;
 
+  // Insights
   h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
-  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} alunos inativos/vencidos</div><div class="ins-p">Alunos com status Inativo e sem renovação. Iniciar fluxo de reativação.</div></div>`;
-  else h+=`<div class="ins ok"><div class="ins-t">Nenhum aluno inativo sem renovação</div><div class="ins-p">Todos os inativos já renovaram ou base está vigente.</div></div>`;
-  if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente - iniciar campanha de renovação agora.</div></div>`;
-  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(jaRenovaram.length/totalBase*100)} da base já confirmou renovação (Sim).</div></div>`;
+  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} alunos inativos sem renovação</div><div class="ins-p">Alunos com status Inativo que não renovaram. Iniciar fluxo de reativação.</div></div>`;
+  if(naoRenovaram.length>0) h+=`<div class="ins i"><div class="ins-t">${fN(naoRenovaram.length)} ainda não renovaram</div><div class="ins-p">${fP(naoRenovaram.length/totalBase*100)} da base sem confirmação de renovação.</div></div>`;
+  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(jaRenovaram.length/totalBase*100)} da base já confirmou renovação.</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
 }
-function rnGo(p){RN_PAGE=p;renderRenov(CS);}
-function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=col==='dias'?1:-1;}RN_PAGE=1;renderRenov(CS);}
+function rnGo(p){RN_PAGE=p;renderRenov();}
+function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=-1;}RN_PAGE=1;renderRenov();}
 
 let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
 function renderDetalhamento(cs){
