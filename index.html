@@ -1005,25 +1005,27 @@ function renderRenov(){
   }
 
   function isRenov(r){ return (r.renovou||'').toLowerCase().trim()==='sim'; }
+  const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
 
   const allRows=CONSOLIDADO.map(c=>{
     const isInativo=(c.validade||'').toLowerCase().trim()==='inativo';
     const renov=isRenov(c);
     const turma=c.turma||'';
-    return {c,inativo:isInativo,renov,turma};
+    const vTs=c.validadeTs;
+    const dias=vTs?Math.floor((vTs-hojeMs)/DAY):null;
+    return {c,inativo:isInativo,renov,turma,dias,venc:vTs};
   });
 
   const totalBase=allRows.length;
   const jaRenovaram=allRows.filter(x=>x.renov);
   const naoRenovaram=allRows.filter(x=>!x.renov);
-  const vencidos=allRows.filter(x=>x.inativo&&!x.renov);
-  const ativos=allRows.filter(x=>!x.inativo);
+  const vencem90=allRows.filter(x=>!x.renov&&x.dias!==null&&x.dias>=0&&x.dias<=90);
 
   let h=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">${fN(totalBase)}</div><div class="kpi-s">Base completa</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(jaRenovaram.length/totalBase*100)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Não Renovaram</div><div class="kpi-v">${fN(naoRenovaram.length)}</div><div class="kpi-s">${fP(naoRenovaram.length/totalBase*100)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Inativos (Vencidos)</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">${fP(vencidos.length/totalBase*100)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 90 dias</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Alunos que não renovaram e vencem em até 90 dias</div></div>
   </div>`;
 
   // Gráfico por turma
@@ -1064,14 +1066,14 @@ function renderRenov(){
     </div></div>`;
   }
 
+  const fmt=ts=>{if(!ts)return '-';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+
   // Tabela de alunos
   const tableRows=[...allRows].sort((a,b)=>{
     if(RN_SORT==='nome') return RN_DIR*(a.c.nome||'').localeCompare(b.c.nome||'');
     if(RN_SORT==='turma') return RN_DIR*(a.turma||'').localeCompare(b.turma||'');
-    if(RN_SORT==='renov'){
-      const va=a.renov?1:0,vb=b.renov?1:0;
-      return RN_DIR*(vb-va);
-    }
+    if(RN_SORT==='dias'){const da=a.dias===null?9999:a.dias;const db=b.dias===null?9999:b.dias;return RN_DIR*(da-db);}
+    if(RN_SORT==='renov'){const va=a.renov?1:0,vb=b.renov?1:0;return RN_DIR*(vb-va);}
     if(RN_SORT==='status'){
       const sc=x=>x.renov?2:(x.inativo?0:1);
       return RN_DIR*(sc(a)-sc(b));
@@ -1087,17 +1089,21 @@ function renderRenov(){
     <thead><tr>
       <th style="cursor:pointer" onclick="rnSort('nome')">Aluno</th>
       <th style="cursor:pointer" onclick="rnSort('turma')">Turma</th>
+      <th style="text-align:right;cursor:pointer" onclick="rnSort('dias')">Validade</th>
       <th style="cursor:pointer" onclick="rnSort('renov')">Renovação</th>
       <th style="cursor:pointer" onclick="rnSort('status')">Status</th>
     </tr></thead>
     <tbody>${slice.map(x=>{
       const renov=x.renov;
-      const st=renov?'Renovado':(x.inativo?'Inativo':'Não renovou');
-      const col=renov?'var(--green)':(x.inativo?'var(--red)':'var(--orange)');
-      const bg=renov?'rgba(52,211,153,.12)':(x.inativo?'rgba(248,113,113,.12)':'rgba(251,146,60,.12)');
+      const vencido=x.dias!==null&&x.dias<0&&!renov;
+      const st=renov?'Renovado':(x.inativo?'Inativo':(vencido?'Vencido':(x.dias!==null&&x.dias<=90?'A vencer':'Vigente')));
+      const col=renov?'var(--green)':(x.inativo?'var(--red)':(vencido?'var(--red)':(x.dias!==null&&x.dias<=90?'var(--orange)':'var(--teal)')));
+      const bg=renov?'rgba(52,211,153,.12)':(x.inativo?'rgba(248,113,113,.12)':(vencido?'rgba(248,113,113,.12)':(x.dias!==null&&x.dias<=90?'rgba(251,146,60,.12)':'rgba(45,212,191,.12)')));
+      const diasTxt=x.inativo?'Inativo':(x.dias===null?'-':(x.dias<0?'Vencido':x.dias+'d'));
       return `<tr>
         <td><div style="color:var(--t1);font-weight:600">${x.c.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${x.c.email||''}</div></td>
         <td style="font-size:12px">${x.turma||'-'}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px"><div>${x.inativo?'Inativo':fmt(x.venc)}</div><div style="font-size:10px;color:${col};font-weight:700">${diasTxt}</div></td>
         <td style="font-size:12px">${x.c.renovou||'-'}</td>
         <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${bg};color:${col}">${st}</span></td>
       </tr>`;
@@ -1107,8 +1113,10 @@ function renderRenov(){
   </div>`;
 
   // Insights
+  const vencidos=allRows.filter(x=>!x.renov&&x.dias!==null&&x.dias<0);
   h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
-  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} alunos inativos sem renovação</div><div class="ins-p">Alunos com status Inativo que não renovaram. Iniciar fluxo de reativação.</div></div>`;
+  if(vencem90.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem90.length)} alunos vencem nos próximos 90 dias</div><div class="ins-p">Alunos que não renovaram e perdem acesso em até 90 dias. Ação de retenção necessária.</div></div>`;
+  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} já venceram sem renovar</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Fluxo de reativação.</div></div>`;
   if(naoRenovaram.length>0) h+=`<div class="ins i"><div class="ins-t">${fN(naoRenovaram.length)} ainda não renovaram</div><div class="ins-p">${fP(naoRenovaram.length/totalBase*100)} da base sem confirmação de renovação.</div></div>`;
   if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(jaRenovaram.length/totalBase*100)} da base já confirmou renovação.</div></div>`;
   h+=`</div>`;
