@@ -1001,19 +1001,20 @@ function renderRenov(cs){
   const cont=document.getElementById('cRenov');
   const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
 
-  // Mapa de turma original via Dados Consolidados (por email e nome)
-  const turmaOrigByEmail=new Map();
-  const turmaOrigByNome=new Map();
+  // Mapa via Dados Consolidados: turma original + validade (Inativo)
+  const consolidadoByEmail=new Map();
+  const consolidadoByNome=new Map();
   CONSOLIDADO.forEach(c=>{
-    if(c.email) turmaOrigByEmail.set(c.email,c.turmaOriginal);
-    if(c.nome) turmaOrigByNome.set(normNome(c.nome),c.turmaOriginal);
+    const obj={turma:c.turmaOriginal||'',validade:(c.validade||'').toLowerCase().trim()};
+    if(c.email) consolidadoByEmail.set(c.email,obj);
+    if(c.nome) consolidadoByNome.set(normNome(c.nome),obj);
   });
-  function getTurmaOriginal(r){
+  function getConsolidado(r){
     const email=(r.email||'').toLowerCase();
-    if(email&&turmaOrigByEmail.has(email)) return turmaOrigByEmail.get(email);
+    if(email&&consolidadoByEmail.has(email)) return consolidadoByEmail.get(email);
     const nome=normNome(r.nome);
-    if(nome&&turmaOrigByNome.has(nome)) return turmaOrigByNome.get(nome);
-    return r.turma||'';
+    if(nome&&consolidadoByNome.has(nome)) return consolidadoByNome.get(nome);
+    return {turma:r.turma||'',validade:''};
   }
 
   function isRenov(r){
@@ -1022,11 +1023,11 @@ function renderRenov(cs){
   }
 
   const allRows=cs.map(r=>{
-    const endDate=r.dtRenovacao;
-    const statusRaw=(r.statusRenov||'').toLowerCase().trim();
-    const isInativo=statusRaw==='inativo'||statusRaw.includes('inativo');
+    const cons=getConsolidado(r);
+    const turmaOrig=cons.turma;
+    const isInativo=cons.validade==='inativo';
     const renov=isRenov(r);
-    const turmaOrig=getTurmaOriginal(r);
+    const endDate=r.dtRenovacao;
     let dias=null,venc=null;
     if(endDate){
       dias=Math.floor((endDate-hojeMs)/DAY);
