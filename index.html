@@ -1001,39 +1001,43 @@ function renderRenov(cs){
   const cont=document.getElementById('cRenov');
   const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
 
-  const withVenc=cs.map(r=>{
-    const endDate=r.dtRenovacao;
-    const statusRaw=(r.statusRenov||'').toLowerCase();
-    const isInativo=statusRaw==='inativo'||statusRaw.includes('inativo');
-    if(!endDate&&!isInativo) return {r,dias:null,venc:null,inativo:false};
-    if(isInativo&&!endDate) return {r,dias:-1,venc:null,inativo:true};
-    const dias=Math.floor((endDate-hojeMs)/DAY);
-    return {r,dias,venc:endDate,inativo:isInativo};
-  });
-
   function isRenov(r){
     const v=(r.renovou||'').toLowerCase().trim();
-    return v&&v!=='não'&&v!=='nao'&&v!=='-'&&v!=='';
+    return v==='sim';
   }
 
-  const valid=withVenc.filter(x=>x.dias!==null);
-  const jaRenovaram=valid.filter(x=>isRenov(x.r));
-  const notRenewed=x=>!isRenov(x.r);
-  const ativos=valid.filter(x=>x.dias>=0&&!x.inativo);
-  const vencidos=valid.filter(x=>(x.dias<0||x.inativo)&&notRenewed(x));
-  const vencidos90=valid.filter(x=>x.dias<0&&x.dias>=-90&&notRenewed(x));
-  const vencem30=valid.filter(x=>x.dias>=0&&x.dias<=30&&notRenewed(x));
-  const vencem60=valid.filter(x=>x.dias>30&&x.dias<=60&&notRenewed(x));
-  const vencem90=valid.filter(x=>x.dias>60&&x.dias<=90&&notRenewed(x));
-  const vencem120=valid.filter(x=>x.dias>90&&x.dias<=120&&notRenewed(x));
+  const allRows=cs.map(r=>{
+    const endDate=r.dtRenovacao;
+    const statusRaw=(r.statusRenov||'').toLowerCase().trim();
+    const isInativo=statusRaw==='inativo'||statusRaw.includes('inativo');
+    const renov=isRenov(r);
+    let dias=null,venc=null;
+    if(endDate){
+      dias=Math.floor((endDate-hojeMs)/DAY);
+      venc=endDate;
+    } else if(isInativo){
+      dias=-1;
+    }
+    return {r,dias,venc,inativo:isInativo,renov};
+  });
 
-  const totalBase=valid.length||1;
+  const totalBase=cs.length||1;
+  const jaRenovaram=allRows.filter(x=>x.renov);
+  const vencidos=allRows.filter(x=>x.inativo&&!x.renov);
+  const ativosComData=allRows.filter(x=>x.dias!==null&&x.dias>=0&&!x.inativo);
+  const semData=allRows.filter(x=>x.dias===null&&!x.inativo);
+  const ativos=ativosComData.length+semData.length;
+  const vencidos90=allRows.filter(x=>x.inativo&&!x.renov);
+  const vencem30=allRows.filter(x=>x.dias!==null&&x.dias>=0&&x.dias<=30&&!x.inativo&&!x.renov);
+  const vencem60=allRows.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&!x.inativo&&!x.renov);
+  const vencem90=allRows.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&!x.inativo&&!x.renov);
+  const vencem120=allRows.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&!x.inativo&&!x.renov);
 
   let h=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(ativos.length)}</div><div class="kpi-s">${fP(ativos.length/totalBase*100)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(ativos)}</div><div class="kpi-s">${fP(ativos/totalBase*100)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(jaRenovaram.length/totalBase*100)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Vencidos há 90 dias</div><div class="kpi-v">${fN(vencidos90.length)}</div><div class="kpi-s">Venceram nos últimos 90 dias</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Inativo / acesso expirado</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Não Renovaram</div><div class="kpi-v">${fN(allRows.filter(x=>!x.renov).length)}</div><div class="kpi-s">Sem confirmação de renovação</div></div>
   </div>
   <div class="kpis" style="margin-top:12px">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 30 dias</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Ação urgente</div></div>
@@ -1043,13 +1047,13 @@ function renderRenov(cs){
   </div>`;
 
   const turmaMap=new Map();
-  valid.forEach(x=>{
+  allRows.forEach(x=>{
     const t=normTurmaStr(x.r.turma);
     if(!t) return;
     if(!turmaMap.has(t)) turmaMap.set(t,{total:0,renov:0});
     const tm=turmaMap.get(t);
     tm.total++;
-    if(isRenov(x.r)) tm.renov++;
+    if(x.renov) tm.renov++;
   });
   const turmaArr=[...turmaMap.entries()].sort((a,b)=>{
     const na=parseInt((a[0].match(/\d+/)||[0])[0])||0;
@@ -1061,7 +1065,7 @@ function renderRenov(cs){
     const maxPctRenov=Math.max(...turmaArr.map(([,v])=>v.total?v.renov/v.total*100:0),1);
     const colPalette=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
     h+=`<div class="sec">Percentual de Renovação por Turma</div>
-    <div class="card"><h3>Renovação por turma</h3><div class="d">Total: ${fN(jaRenovaram.length)} renovações válidas. Ordenado por turma.</div>
+    <div class="card"><h3>Renovação por turma</h3><div class="d">Total: ${fN(jaRenovaram.length)} renovações (Sim na coluna T). Ordenado por turma.</div>
     <div class="hbar-area">
       ${turmaArr.map(([turma,v],i)=>{
         const pct=v.total?v.renov/v.total*100:0;
@@ -1081,13 +1085,17 @@ function renderRenov(cs){
 
   const fmt=ts=>{if(!ts)return '-';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
 
-  const tableRows=[...valid].sort((a,b)=>{
+  const tableRows=[...allRows].sort((a,b)=>{
     if(RN_SORT==='nome') return RN_DIR*(a.r.nome||'').localeCompare(b.r.nome||'');
     if(RN_SORT==='turma') return RN_DIR*(a.r.turma||'').localeCompare(b.r.turma||'');
     if(RN_SORT==='fim') return RN_DIR*((a.venc||0)-(b.venc||0));
     if(RN_SORT==='renov') return RN_DIR*(a.r.renovou||'').localeCompare(b.r.renovou||'');
-    if(RN_SORT==='status'){const sa=a.dias<0?-9999:a.dias;const sb=b.dias<0?-9999:b.dias;return RN_DIR*(sa-sb);}
-    return RN_DIR*(a.dias-b.dias);
+    if(RN_SORT==='status'){
+      const sc=x=>{if(x.renov)return 5;if(x.inativo)return 0;if(x.dias===null)return 3;if(x.dias<=30)return 1;if(x.dias<=60)return 2;return 4;};
+      return RN_DIR*(sc(a)-sc(b));
+    }
+    const da=a.dias===null?9999:a.dias;const db=b.dias===null?9999:b.dias;
+    return RN_DIR*(da-db);
   });
   const per=50,pages=Math.max(1,Math.ceil(tableRows.length/per));
   if(RN_PAGE>pages)RN_PAGE=1;
@@ -1105,16 +1113,17 @@ function renderRenov(cs){
     </tr></thead>
     <tbody>${slice.map(x=>{
       const r=x.r;
-      const venc=x.dias<0||x.inativo;
-      const renov=isRenov(r);
-      const st=renov?'Renovado':(venc?'Vencido':(x.dias<=30?'Urgente':(x.dias<=60?'Atentar':(x.dias<=90?'Planejar':'Vigente'))));
-      const col=renov?'var(--green)':(venc?'var(--red)':(x.dias<=30?'var(--orange)':(x.dias<=60?'var(--gold)':(x.dias<=90?'var(--sky)':'var(--teal)'))));
-      const bg=renov?'rgba(52,211,153,.12)':(venc?'rgba(248,113,113,.12)':(x.dias<=30?'rgba(251,146,60,.12)':(x.dias<=60?'rgba(251,191,36,.12)':(x.dias<=90?'rgba(56,189,248,.12)':'rgba(45,212,191,.12)'))));
+      const venc=x.inativo||(x.dias!==null&&x.dias<0);
+      const renov=x.renov;
+      const st=renov?'Renovado':(venc?'Vencido':(x.dias===null?'Sem data':(x.dias<=30?'Urgente':(x.dias<=60?'Atentar':(x.dias<=90?'Planejar':'Vigente')))));
+      const col=renov?'var(--green)':(venc?'var(--red)':(x.dias===null?'var(--t3)':(x.dias<=30?'var(--orange)':(x.dias<=60?'var(--gold)':(x.dias<=90?'var(--sky)':'var(--teal)')))));
+      const bg=renov?'rgba(52,211,153,.12)':(venc?'rgba(248,113,113,.12)':(x.dias===null?'rgba(148,163,184,.08)':(x.dias<=30?'rgba(251,146,60,.12)':(x.dias<=60?'rgba(251,191,36,.12)':(x.dias<=90?'rgba(56,189,248,.12)':'rgba(45,212,191,.12)')))));
+      const diasTxt=x.dias===null?'-':(venc?('-'+Math.abs(x.dias)+'d'):(x.dias+'d'));
       return `<tr>
         <td><div style="color:var(--t1);font-weight:600">${r.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${r.email||''}</div></td>
         <td style="font-size:12px">${r.turma||'-'}</td>
-        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${fmt(x.venc)}</td>
-        <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${col}">${venc?('-'+Math.abs(x.dias)+'d'):(x.dias+'d')}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${x.inativo?'Inativo':fmt(x.venc)}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${col}">${diasTxt}</td>
         <td style="font-size:12px">${r.renovou||'-'}</td>
         <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${bg};color:${col}">${st}</span></td>
       </tr>`;
@@ -1124,10 +1133,10 @@ function renderRenov(cs){
   </div>`;
 
   h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
-  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
-  else h+=`<div class="ins ok"><div class="ins-t">Nenhum acesso vencido sem renovação</div><div class="ins-p">Todos os alunos vencidos já renovaram ou ainda estão vigentes.</div></div>`;
+  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} alunos inativos/vencidos</div><div class="ins-p">Alunos com status Inativo e sem renovação. Iniciar fluxo de reativação.</div></div>`;
+  else h+=`<div class="ins ok"><div class="ins-t">Nenhum aluno inativo sem renovação</div><div class="ins-p">Todos os inativos já renovaram ou base está vigente.</div></div>`;
   if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente - iniciar campanha de renovação agora.</div></div>`;
-  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(jaRenovaram.length/totalBase*100)} da base já garantiu a renovação.</div></div>`;
+  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(jaRenovaram.length/totalBase*100)} da base já confirmou renovação (Sim).</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
