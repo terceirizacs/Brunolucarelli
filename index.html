@@ -994,8 +994,58 @@ function renderAll(cs){
 }
 
 /* ===== RENOVAÇÃO ===== */
-let RN_PAGE=1,RN_SORT='dias',RN_DIR=1;
+let RN_PAGE=1,RN_SORT='dias',RN_DIR=1,RN_TURMA_FILTER=[];
+
 const DAY=86400000;
+
+function renderRenovFilter(){
+  const allTurmas=new Set();
+  CONSOLIDADO.forEach(c=>{const t=normTurmaStr(c.turma);if(t)allTurmas.add(t);});
+  const sorted=[...allTurmas].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
+  let h=`<div class="filter-bar" style="margin-bottom:20px">
+    <div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="rnClearFilter()">Limpar</button><button class="filter-apply" onclick="rnApplyFilter()">Aplicar</button></div></div>
+    <div class="filter-grid" style="grid-template-columns:1fr">
+      <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fRenovTurma"></div></div>
+    </div>
+    <div class="active-filters" id="rnTagsArea"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
+  </div>`;
+  return {html:h,turmas:sorted};
+}
+function rnApplyFilter(){
+  RN_TURMA_FILTER=getMS('fRenovTurma');
+  RN_PAGE=1;
+  const area=document.getElementById('rnTagsArea');
+  if(RN_TURMA_FILTER.length){
+    area.innerHTML=RN_TURMA_FILTER.map(t=>'<span class="filter-tag">'+t+' <span class="x" onclick="rnRemoveTag(\''+t+'\')">&times;</span></span>').join('');
+  }else{
+    area.innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';
+  }
+  renderRenov();
+}
+function rnClearFilter(){
+  const wrap=document.getElementById('fRenovTurma');
+  if(wrap)wrap.querySelectorAll('.ms-option.selected').forEach(o=>o.classList.remove('selected'));
+  if(wrap){const t=wrap.querySelector('.ms-trigger');if(t)t.innerHTML='Todos';}
+  RN_TURMA_FILTER=[];
+  RN_PAGE=1;
+  const area=document.getElementById('rnTagsArea');
+  if(area)area.innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';
+  renderRenov();
+}
+function rnRemoveTag(turma){
+  RN_TURMA_FILTER=RN_TURMA_FILTER.filter(t=>t!==turma);
+  const wrap=document.getElementById('fRenovTurma');
+  if(wrap)wrap.querySelectorAll('.ms-option').forEach(o=>{if(o.dataset.val===turma)o.classList.remove('selected');});
+  updTrig(wrap);
+  RN_PAGE=1;
+  const area=document.getElementById('rnTagsArea');
+  if(RN_TURMA_FILTER.length){
+    area.innerHTML=RN_TURMA_FILTER.map(t=>'<span class="filter-tag">'+t+' <span class="x" onclick="rnRemoveTag(\''+t+'\')">&times;</span></span>').join('');
+  }else{
+    area.innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';
+  }
+  renderRenov();
+}
 
 function renderRenov(){
   const cont=document.getElementById('cRenov');
@@ -1004,10 +1054,12 @@ function renderRenov(){
     return;
   }
 
+  const {html:filterHtml,turmas:filterTurmas}=renderRenovFilter();
+
   function isRenov(r){ return (r.renovou||'').toLowerCase().trim()==='sim'; }
   const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
 
-  const allRows=CONSOLIDADO.map(c=>{
+  const allRowsUnfiltered=CONSOLIDADO.map(c=>{
     const isInativo=(c.validade||'').toLowerCase().trim()==='inativo';
     const renov=isRenov(c);
     const turma=c.turma||'';
@@ -1016,15 +1068,19 @@ function renderRenov(){
     return {c,inativo:isInativo,renov,turma,dias,venc:vTs};
   });
 
+  const allRows=RN_TURMA_FILTER.length?allRowsUnfiltered.filter(x=>{const nt=normTurmaStr(x.turma);return nt&&RN_TURMA_FILTER.includes(nt);}):allRowsUnfiltered;
+
   const totalBase=allRows.length;
+  const ativos=allRows.filter(x=>!x.inativo);
   const jaRenovaram=allRows.filter(x=>x.renov);
-  const naoRenovaram=allRows.filter(x=>!x.renov);
+  const naoRenovaram=allRows.filter(x=>!x.renov&&(x.inativo||(x.dias!==null&&x.dias<0)));
   const vencem90=allRows.filter(x=>!x.renov&&x.dias!==null&&x.dias>=0&&x.dias<=90);
 
-  let h=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">${fN(totalBase)}</div><div class="kpi-s">Base completa</div></div>
+  let h=filterHtml;
+  h+=`<div class="kpis">
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">${fN(totalBase)}</div><div class="kpi-s">Ativos: ${fN(ativos.length)}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(jaRenovaram.length/totalBase*100)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Não Renovaram</div><div class="kpi-v">${fN(naoRenovaram.length)}</div><div class="kpi-s">${fP(naoRenovaram.length/totalBase*100)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos sem Renovar</div><div class="kpi-v">${fN(naoRenovaram.length)}</div><div class="kpi-s">Já passaram da data e não renovaram</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 90 dias</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Alunos que não renovaram e vencem em até 90 dias</div></div>
   </div>`;
 
@@ -1123,6 +1179,15 @@ function renderRenov(){
   h+=`</div>`;
 
   cont.innerHTML=h;
+
+  buildMS('fRenovTurma',filterTurmas);
+  if(RN_TURMA_FILTER.length){
+    const wrap=document.getElementById('fRenovTurma');
+    if(wrap)wrap.querySelectorAll('.ms-option').forEach(o=>{if(RN_TURMA_FILTER.includes(o.dataset.val))o.classList.add('selected');});
+    updTrig(wrap);
+    const area=document.getElementById('rnTagsArea');
+    if(area)area.innerHTML=RN_TURMA_FILTER.map(t=>'<span class="filter-tag">'+t+' <span class="x" onclick="rnRemoveTag(\''+t+'\')">&times;</span></span>').join('');
+  }
 }
 function rnGo(p){RN_PAGE=p;renderRenov();}
 function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=-1;}RN_PAGE=1;renderRenov();}
