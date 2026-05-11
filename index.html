@@ -771,13 +771,20 @@ function renderAll(cs){
   // Ao Vivo (Zoom) — agrupa por (data + tópico), filtra por turma DESTINADA da live
   try{
   const avDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  // Mapa email -> turma: CS tem prioridade; depois Chekin, Arrematação, Desenvolvimento, NPS, Consolidado
   const emailTurmaMap={};
-  CS.forEach(r=>{const em=(r.email||'').toLowerCase();const nt=normTurmaStr(r.turma);if(em&&nt)emailTurmaMap[em]=nt;});
+  function addToMap(em, t){if(em&&t&&!emailTurmaMap[em])emailTurmaMap[em]=t;}
+  CS.forEach(r=>addToMap((r.email||'').toLowerCase(),normTurmaStr(r.turma)));
+  (CK||[]).forEach(r=>{const em=(r.email||'').toLowerCase();addToMap(em,normTurmaStr(r.turma));});
+  (AR||[]).forEach(r=>{const em=(r.email||'').toLowerCase();addToMap(em,normTurma(r));});
+  (DV||[]).forEach(r=>{const em=(r.email||'').toLowerCase();addToMap(em,normTurmaStr(r.turmaInicial)||normTurmaStr(r.mentoriaAtual));});
+  (NPS||[]).forEach(r=>{const em=(r.email||'').toLowerCase();addToMap(em,normTurmaStr(r.turma));});
+  (CONSOLIDADO||[]).forEach(r=>{const em=(r.email||'').toLowerCase();addToMap(em,normTurmaStr(r.turma));});
   const ftAV=getMS('fTurma');
   const turmaCores={'T17':'#a78bfa','T18':'#f472b6','T19':'#fbbf24','T20':'#2dd4bf','T21':'#38bdf8','T22':'#fb923c','T23':'#34d399'};
   const lives={};
   (AV||[]).forEach(r=>{
-    if(!r.nomeParticipante||r.nomeParticipante.includes('Host')||r.nomeParticipante.includes('Broadcast'))return;
+    if(!r.nomeParticipante)return;
     let dt=null;
     if(typeof r.dtInicio==='number')dt=new Date(r.dtInicio);
     else if(typeof r.dtInicio==='string'){dt=new Date(r.dtInicio);if(isNaN(dt.getTime())){const ps=(r.dtInicio||'').match(/(\d{4})-(\d{2})-(\d{2})/);if(ps)dt=new Date(parseInt(ps[1]),parseInt(ps[2])-1,parseInt(ps[3]));else return;}}
@@ -786,7 +793,12 @@ function renderAll(cs){
     const topico=r.topico||'(sem título)';
     const turmaDest=(r.turma||'').trim();
     const k=dk+'|'+topico;
-    if(!lives[k])lives[k]={data:dt,topico:topico,turmaDest:turmaDest,ids:new Set(),turmas:{},duracoes:[]};
+    if(!lives[k])lives[k]={data:dt,topico:topico,turmaDest:turmaDest,ids:new Set(),turmas:{},duracoes:[],duracaoReuniao:0};
+    // Duração da reunião = max das durações (host normalmente ficou o tempo todo)
+    if(typeof r.duracao==='number'&&r.duracao>lives[k].duracaoReuniao)lives[k].duracaoReuniao=r.duracao;
+    // Host/Broadcast não conta como participante real
+    const isHost=r.nomeParticipante.includes('Host')||r.nomeParticipante.includes('Broadcast');
+    if(isHost)return;
     const em=(r.emailParticipante||'').toLowerCase();
     const uid=em||('nome:'+r.nomeParticipante.toLowerCase());
     if(!lives[k].ids.has(uid)){
@@ -871,9 +883,10 @@ function renderAll(cs){
         e+='<div class="live-card" style="border-left:4px solid '+cor+'">';
         e+='<div class="lc-head"><span class="lc-date">'+diaSemana+' · '+dtLabel+'</span></div>';
         e+='<div class="lc-title">'+tituloLimpo+'</div>';
-        e+='<div class="lc-stats"><div class="lc-stat"><div class="lc-stat-val" style="color:'+cor+'">'+fN(nP)+'</div><div class="lc-stat-lbl">participantes únicos</div></div>';
-        e+='<div class="lc-stat"><div class="lc-stat-val">'+avgDur.toFixed(0)+'</div><div class="lc-stat-lbl">min médio</div></div></div>';
-        e+='<div class="lc-breakdown-title">Quem participou (cruzando com CS)</div>';
+        e+='<div class="lc-stats"><div class="lc-stat"><div class="lc-stat-val" style="color:'+cor+'">'+fN(nP)+'</div><div class="lc-stat-lbl">participantes</div></div>';
+        e+='<div class="lc-stat"><div class="lc-stat-val">'+s.duracaoReuniao+'</div><div class="lc-stat-lbl">min de reunião</div></div>';
+        e+='<div class="lc-stat"><div class="lc-stat-val">'+avgDur.toFixed(0)+'</div><div class="lc-stat-lbl">min médio/pessoa</div></div></div>';
+        e+='<div class="lc-breakdown-title">Quem participou</div>';
         e+='<div class="lc-breakdown">'+breakdown+'</div>';
         e+='</div>';
       });
