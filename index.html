@@ -283,7 +283,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div><h1>Bruno Lucarelli</h1><div class="sub">Mentoria Arrematador · Dashboard Executivo</div></div>
 </div>
 <div class="header-right">
-<div class="badge">09/03/2026 14:58</div>
+<div class="badge" id="badgeUpdated">—</div>
 <div class="theme-toggle">
 <button class="theme-btn" id="btnLight" onclick="toggleTheme()">☀️</button>
 <button class="theme-btn active" id="btnDark" onclick="toggleTheme()">🌙</button>
@@ -330,6 +330,12 @@ async function loadData(){
     const D=await r.json();
     if(D.error)throw new Error(D.error);
     CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
+    const badge=document.getElementById('badgeUpdated');
+    if(badge){
+      const dtUpd=D.todayMs?new Date(D.todayMs):null;
+      const fmtUpd=dtUpd?String(dtUpd.getDate()).padStart(2,'0')+'/'+String(dtUpd.getMonth()+1).padStart(2,'0')+'/'+dtUpd.getFullYear()+' '+String(dtUpd.getHours()).padStart(2,'0')+':'+String(dtUpd.getMinutes()).padStart(2,'0'):'—';
+      badge.textContent='🟢 Atualizado '+fmtUpd;
+    }
     
     // Build sets de arrematadores (da aba Controle de arrematação) — mesmos filtros do getFA
     arrNomesSet=new Set();
@@ -532,11 +538,11 @@ function renderAll(cs){
   fOrdV.forEach((f,i)=>{const q=fdV[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBgV[i]+';color:'+fColV[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColV[i]+'"></div></div></div>';});
   h+='</div></div>';
 
-  // Comparativo por Turma — T12 a T18 apenas
-  const compTurmas=['T12','T13','T14','T15','T16','T17','T18'];
-  const compData=compTurmas.map(t=>([t,turmaC[t]||0])).filter(([,v])=>v>0);
+  // Comparativo por Turma — T12+ (todas que existem na base, dinâmico)
+  const compData=Object.keys(turmaC).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&turmaC[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T',''))).map(t=>[t,turmaC[t]]);
   if(compData.length){
-    h+='<div class="sec">👥 Comparativo por Turma (T12–T18)</div><div class="card"><h3>Alunos por Turma</h3><div class="d">T12 a T18</div><div class="hbar-area" style="height:auto">';
+    const ultima=compData[compData.length-1][0];
+    h+='<div class="sec">👥 Comparativo por Turma (T12 → '+ultima+')</div><div class="card"><h3>Alunos por Turma</h3><div class="d">T12 até a turma atual</div><div class="hbar-area" style="height:auto">';
     h+=hbarChart(compData,'var(--accent)',total);
     h+='</div></div>';
   }
@@ -948,19 +954,21 @@ function renderAll(cs){
   a+='</div></div>';
 
   // Tipo, Modalidade, Objetivo, Pagamento, Ocupação
+  // IMPORTANTE: registros sem o campo vão pra "Não identificado" pra o total dos donuts bater com tArr
   const tiI={},modI={},objI={},cpI={},ocI={};
+  const NI='Não identificado';
   arrV.forEach(r=>{
-    if(r.tipoImovel)tiI[r.tipoImovel]=(tiI[r.tipoImovel]||0)+1;
-    if(r.modalidade)modI[r.modalidade.trim()]=(modI[r.modalidade.trim()]||0)+1;
-    if(r.objetivo)objI[r.objetivo]=(objI[r.objetivo]||0)+1;
-    if(r.condPagamento)cpI[r.condPagamento]=(cpI[r.condPagamento]||0)+1;
-    if(r.ocupacao)ocI[r.ocupacao]=(ocI[r.ocupacao]||0)+1;
+    const ti=(r.tipoImovel||'').toString().trim();tiI[ti||NI]=(tiI[ti||NI]||0)+1;
+    const md=(r.modalidade||'').toString().trim();modI[md||NI]=(modI[md||NI]||0)+1;
+    const ob=(r.objetivo||'').toString().trim();objI[ob||NI]=(objI[ob||NI]||0)+1;
+    const cp=(r.condPagamento||'').toString().trim();cpI[cp||NI]=(cpI[cp||NI]||0)+1;
+    const oc=(r.ocupacao||'').toString().trim();ocI[oc||NI]=(ocI[oc||NI]||0)+1;
   });
-  const tiC={'Apartamento':'var(--accent)','Casa de Rua':'var(--teal)','Casa em Condomínio':'var(--green)','Imóvel Comercial':'var(--gold)','Terreno / Lote':'var(--orange)','Outros':'var(--t3)'};
-  const mdC={'Judicial':'var(--accent)','Judicial ':'var(--accent)','Extrajudicial':'var(--teal)','Caixa Econômica Federal':'var(--gold)'};
-  const obC={'Compra, Reforma e Venda':'var(--green)','Renda (Locação)':'var(--teal)','Uso Próprio':'var(--sky)','Assessoria / Arrematação para Terceiros':'var(--gold)','Locação':'var(--cyan)'};
-  const cpC={'À vista':'var(--green)','A vista':'var(--green)','à vista':'var(--green)','Financiamento':'var(--accent)','financiamento':'var(--accent)','Parcelado':'var(--gold)','parcelado':'var(--gold)','FGTS':'var(--teal)','Consórcio':'var(--orange)','consórcio':'var(--orange)','Permuta':'var(--pink)'};
-  const ocC={'Desocupado':'var(--green)','Ocupado':'var(--red)'};
+  const tiC={'Apartamento':'var(--accent)','Casa de Rua':'var(--teal)','Casa em Condomínio':'var(--green)','Imóvel Comercial':'var(--gold)','Terreno / Lote':'var(--orange)','Outros':'var(--t3)','Não identificado':'var(--t3)'};
+  const mdC={'Judicial':'var(--accent)','Judicial ':'var(--accent)','Extrajudicial':'var(--teal)','Caixa Econômica Federal':'var(--gold)','Não identificado':'var(--t3)'};
+  const obC={'Compra, Reforma e Venda':'var(--green)','Renda (Locação)':'var(--teal)','Uso Próprio':'var(--sky)','Assessoria / Arrematação para Terceiros':'var(--gold)','Locação':'var(--cyan)','Não identificado':'var(--t3)'};
+  const cpC={'À vista':'var(--green)','A vista':'var(--green)','à vista':'var(--green)','Financiamento':'var(--accent)','financiamento':'var(--accent)','Parcelado':'var(--gold)','parcelado':'var(--gold)','FGTS':'var(--teal)','Consórcio':'var(--orange)','consórcio':'var(--orange)','Permuta':'var(--pink)','Não identificado':'var(--t3)'};
+  const ocC={'Desocupado':'var(--green)','Ocupado':'var(--red)','Não identificado':'var(--t3)'};
 
   a+='<div class="sec">📊 Perfil das Arrematações</div>';
   a+='<div class="g2"><div class="card"><h3>Tipo de Imóvel</h3><div class="d">Distribuição</div><div class="donut-area">'+multiD(tiI,tiC)+'</div></div>';
