@@ -935,13 +935,13 @@ function renderAll(cs){
   const arrT={},arrTAlunos={},arrTVal={};
   // Contar imóveis do Controle de arrematação (mesmo getFA = mesma fonte da Visão Geral)
   arrV.forEach(r=>{
-    const t=normTurma(r);if(!t)return;
+    const t=normTurma(r)||'Sem turma';
     arrT[t]=(arrT[t]||0)+1;
     if(!arrTAlunos[t])arrTAlunos[t]=new Set();
     arrTAlunos[t].add((r.nome||'').toLowerCase());
     if(r.valorArrematado>0)arrTVal[t]=(arrTVal[t]||0)+r.valorArrematado;
   });
-  const showT=Object.keys(arrT).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&arrT[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
+  const showT=Object.keys(arrT).filter(t=>{if(t==='Sem turma')return arrT[t]>0;const n=parseInt(t.replace('T',''));return n>=12&&arrT[t]>0;}).sort((a,b)=>{if(a==='Sem turma')return 1;if(b==='Sem turma')return -1;return parseInt(a.replace('T',''))-parseInt(b.replace('T',''));});
   const arrTItems=showT.map(t=>{const cnt=arrT[t]||0;const alunos=arrTAlunos[t]?arrTAlunos[t].size:0;const tt=turmaC[t]||0;const pctAlunos=tt?rd(alunos/tt*100):0;return[t,cnt,tt,alunos,pctAlunos];});
   a+='<div class="card"><h3>Imóveis Arrematados por Turma</h3><div class="d">Fonte: Controle de Arrematação (somente válidos, sem GA)</div>';
   const mxAT=Math.max(...arrTItems.map(x=>x[1]),1);
