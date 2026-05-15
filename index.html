@@ -446,7 +446,6 @@ function normTurma(r){
 }
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
-  if(!normTurma(r))return false;
   // Excluir GA (Grupo de Arrematadores)
   if((r.nome||'').toLowerCase().includes('grupo'))return false;
   // Coluna D: somente arrematações "Válido"
