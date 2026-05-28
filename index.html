@@ -930,37 +930,45 @@ function renderAll(cs){
   a+=kpi('linear-gradient(90deg,var(--teal),var(--cyan))','Economia vs Mercado',fP(eco),'desconto médio','var(--teal)');
   a+='</div>';
 
-  // === Evolução do Volume Arrematado (linha crescente / acumulado) ===
+  // === Combo: Barras mensais (volume do mês) + Linha acumulada ===
   const arrCumul=arrV.filter(r=>r.dtArremate&&r.valorArrematado>0).sort((a,b)=>a.dtArremate-b.dtArremate);
   if(arrCumul.length>1){
     a+='<div class="sec">📈 Evolução do Volume Arrematado</div>';
-    const dtMin=arrCumul[0].dtArremate,dtMax=arrCumul[arrCumul.length-1].dtArremate;
-    const totalCum=arrCumul.reduce((s,r)=>s+r.valorArrematado,0);
-    let cum=0;const pts=arrCumul.map(r=>{cum+=r.valorArrematado;return{dt:r.dtArremate,cum:cum,val:r.valorArrematado,nome:r.nome||''};});
+    const monthly={};
+    arrCumul.forEach(r=>{const d=new Date(r.dtArremate);const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!monthly[k])monthly[k]={val:0,cnt:0,ts:new Date(d.getFullYear(),d.getMonth(),1).getTime()};monthly[k].val+=r.valorArrematado;monthly[k].cnt++;});
+    const mKeys0=Object.keys(monthly).sort();
+    const [yS,mS]=mKeys0[0].split('-').map(Number);const [yE,mE]=mKeys0[mKeys0.length-1].split('-').map(Number);
+    const fullKeys=[];let cyr=yS,cmo=mS;while(cyr<yE||(cyr===yE&&cmo<=mE)){const k=cyr+'-'+String(cmo).padStart(2,'0');fullKeys.push(k);if(!monthly[k])monthly[k]={val:0,cnt:0,ts:new Date(cyr,cmo-1,1).getTime()};cmo++;if(cmo>12){cmo=1;cyr++;}}
+    let cum=0;const data=fullKeys.map(k=>{cum+=monthly[k].val;return{ts:monthly[k].ts,val:monthly[k].val,cnt:monthly[k].cnt,cum:cum};});
+    const totalCum=cum;const maxMonthly=Math.max(...data.map(d=>d.val),1);
+    const dtMinReal=arrCumul[0].dtArremate,dtMaxReal=arrCumul[arrCumul.length-1].dtArremate;
     const fmtDt=ms=>{const d=new Date(ms);return d.getDate().toString().padStart(2,'0')+'/'+monthNames[d.getMonth()+1]+'/'+d.getFullYear().toString().slice(2);};
+    const fmtMonth=ts=>{const d=new Date(ts);return monthNames[d.getMonth()+1]+'/'+d.getFullYear().toString().slice(2);};
     const fRc=n=>{if(n>=1e6)return'R$ '+(n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'mi';if(n>=1e3)return'R$ '+(n/1e3).toFixed(0)+'k';return'R$ '+Math.round(n);};
-    const W=1000,H=340,PL=78,PR=24,PT=24,PB=46;
+    const W=1000,H=380,PL=82,PR=82,PT=28,PB=48;
     const innerW=W-PL-PR,innerH=H-PT-PB;
-    const xRange=dtMax-dtMin||1;
-    const yMax=totalCum;
-    const sx=ms=>PL+((ms-dtMin)/xRange)*innerW;
-    const sy=v=>PT+innerH-(v/yMax)*innerH;
-    let pathD='M '+sx(pts[0].dt).toFixed(1)+' '+sy(pts[0].cum).toFixed(1);
-    for(let i=1;i<pts.length;i++)pathD+=' L '+sx(pts[i].dt).toFixed(1)+' '+sy(pts[i].cum).toFixed(1);
-    const areaD=pathD+' L '+sx(pts[pts.length-1].dt).toFixed(1)+' '+sy(0).toFixed(1)+' L '+sx(pts[0].dt).toFixed(1)+' '+sy(0).toFixed(1)+' Z';
-    const yTicks=[0,.25,.5,.75,1].map(p=>yMax*p);
-    const xTicks=[];const dStart=new Date(dtMin);dStart.setDate(1);let cur=new Date(dStart);
-    while(cur.getTime()<=dtMax){xTicks.push(cur.getTime());cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
-    const xStep=Math.max(1,Math.ceil(xTicks.length/10));
-    const dias=Math.round((dtMax-dtMin)/(1000*60*60*24));
-    a+='<div class="card"><h3>Volume Arrematado Acumulado</h3><div class="d">'+fmtDt(dtMin)+' → '+fmtDt(dtMax)+' · '+dias+' dias · Total: '+fR(totalCum)+'</div>';
-    a+='<div style="background:var(--chart-bg);border-radius:14px;padding:20px;overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;min-height:320px;display:block">';
-    a+='<defs><linearGradient id="lineGradAcum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8b7cf7" stop-opacity="0.35"/><stop offset="100%" stop-color="#8b7cf7" stop-opacity="0"/></linearGradient></defs>';
-    yTicks.forEach(v=>{const yy=sy(v).toFixed(1);a+='<line x1="'+PL+'" y1="'+yy+'" x2="'+(W-PR)+'" y2="'+yy+'" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 3"/><text x="'+(PL-10)+'" y="'+(parseFloat(yy)+4)+'" text-anchor="end" fill="var(--t2)" font-size="11" font-family="JetBrains Mono">'+fRc(v)+'</text>';});
-    xTicks.forEach((ms,i)=>{if(i%xStep!==0&&i!==xTicks.length-1)return;const xx=sx(ms).toFixed(1);const d=new Date(ms);const lbl=monthNames[d.getMonth()+1]+'/'+d.getFullYear().toString().slice(2);a+='<text x="'+xx+'" y="'+(H-PB+20)+'" text-anchor="middle" fill="var(--t2)" font-size="11" font-family="JetBrains Mono">'+lbl+'</text>';});
-    a+='<path d="'+areaD+'" fill="url(#lineGradAcum)"/><path d="'+pathD+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-    const sampleStep=Math.max(1,Math.ceil(pts.length/80));
-    pts.forEach((p,i)=>{const isLast=i===pts.length-1;if(i%sampleStep!==0&&!isLast&&i!==0)return;const cx=sx(p.dt).toFixed(1),cy=sy(p.cum).toFixed(1);const tip='<div class=tt-title>'+fmtDt(p.dt)+'</div><div class=tt-row><span class=tt-label>Acumulado:</span><span class=tt-value>'+fR(p.cum).replace(/\x27/g,'')+'</span></div><div class=tt-row><span class=tt-label>Arrematação:</span><span class=tt-value>'+fR(p.val).replace(/\x27/g,'')+'</span></div>';a+='<circle cx="'+cx+'" cy="'+cy+'" r="3.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5" style="cursor:pointer" onmouseenter="showTip(event,\''+tip+'\')" onmousemove="showTip(event,\''+tip+'\')" onmouseleave="hideTip()"/>';});
+    const slotW=innerW/data.length;const barW=Math.max(slotW*0.65,2);
+    const yL=v=>PT+innerH-(v/totalCum)*innerH;
+    const yR=v=>PT+innerH-(v/maxMonthly)*innerH;
+    const cx=i=>PL+slotW*i+slotW/2;
+    let pathD='M '+cx(0).toFixed(1)+' '+yL(data[0].cum).toFixed(1);
+    for(let i=1;i<data.length;i++)pathD+=' L '+cx(i).toFixed(1)+' '+yL(data[i].cum).toFixed(1);
+    const yTicks=[0,.25,.5,.75,1];
+    const xStep=Math.max(1,Math.ceil(data.length/10));
+    const dias=Math.round((dtMaxReal-dtMinReal)/(1000*60*60*24));
+    a+='<div class="card"><h3>Volume Arrematado: Pace Mensal × Acumulado</h3>';
+    a+='<div class="d">'+fmtDt(dtMinReal)+' → '+fmtDt(dtMaxReal)+' · '+dias+' dias · Total: '+fR(totalCum)+'</div>';
+    a+='<div style="display:flex;gap:18px;margin:10px 0 12px;font-size:12px;color:var(--t2);flex-wrap:wrap">';
+    a+='<span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:12px;background:var(--teal);border-radius:2px;opacity:.85"></span>Volume do mês (eixo dir.)</span>';
+    a+='<span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:20px;height:2.5px;background:var(--accent)"></span>Acumulado (eixo esq.)</span>';
+    a+='</div>';
+    a+='<div style="background:var(--chart-bg);border-radius:14px;padding:20px;overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;min-height:340px;display:block">';
+    yTicks.forEach(p=>{const v=totalCum*p;const yy=yL(v).toFixed(1);a+='<line x1="'+PL+'" y1="'+yy+'" x2="'+(W-PR)+'" y2="'+yy+'" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 3"/><text x="'+(PL-10)+'" y="'+(parseFloat(yy)+4)+'" text-anchor="end" fill="var(--accent)" font-size="11" font-family="JetBrains Mono" font-weight="600">'+fRc(v)+'</text>';});
+    yTicks.forEach(p=>{const v=maxMonthly*p;const yy=yR(v).toFixed(1);a+='<text x="'+(W-PR+10)+'" y="'+(parseFloat(yy)+4)+'" text-anchor="start" fill="var(--teal)" font-size="11" font-family="JetBrains Mono" font-weight="600">'+fRc(v)+'</text>';});
+    data.forEach((d,i)=>{if(d.val<=0)return;const bh=(d.val/maxMonthly)*innerH;const bx=cx(i)-barW/2;const by=PT+innerH-bh;const tip='<div class=tt-title>'+fmtMonth(d.ts)+'</div><div class=tt-row><span class=tt-label>Imóveis:</span><span class=tt-value>'+fN(d.cnt)+'</span></div><div class=tt-row><span class=tt-label>Volume do mês:</span><span class=tt-value>'+fR(d.val).replace(/\x27/g,'')+'</span></div><div class=tt-row><span class=tt-label>Acumulado:</span><span class=tt-value>'+fR(d.cum).replace(/\x27/g,'')+'</span></div>';a+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="var(--teal)" opacity="0.78" rx="2" style="cursor:pointer" onmouseenter="this.setAttribute(\'opacity\',\'1\');showTip(event,\''+tip+'\')" onmousemove="showTip(event,\''+tip+'\')" onmouseleave="this.setAttribute(\'opacity\',\'0.78\');hideTip()"/>';});
+    a+='<path d="'+pathD+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    data.forEach((d,i)=>{const px=cx(i).toFixed(1),py=yL(d.cum).toFixed(1);const tip='<div class=tt-title>'+fmtMonth(d.ts)+'</div><div class=tt-row><span class=tt-label>Acumulado:</span><span class=tt-value>'+fR(d.cum).replace(/\x27/g,'')+'</span></div><div class=tt-row><span class=tt-label>Volume do mês:</span><span class=tt-value>'+fR(d.val).replace(/\x27/g,'')+'</span></div>';a+='<circle cx="'+px+'" cy="'+py+'" r="3" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5" style="cursor:pointer" onmouseenter="showTip(event,\''+tip+'\')" onmousemove="showTip(event,\''+tip+'\')" onmouseleave="hideTip()"/>';});
+    data.forEach((d,i)=>{const isLast=i===data.length-1;if(i%xStep!==0&&!isLast)return;a+='<text x="'+cx(i).toFixed(1)+'" y="'+(H-PB+20)+'" text-anchor="middle" fill="var(--t2)" font-size="11" font-family="JetBrains Mono">'+fmtMonth(d.ts)+'</text>';});
     a+='</svg></div></div>';
   }
 
