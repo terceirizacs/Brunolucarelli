@@ -930,6 +930,40 @@ function renderAll(cs){
   a+=kpi('linear-gradient(90deg,var(--teal),var(--cyan))','Economia vs Mercado',fP(eco),'desconto médio','var(--teal)');
   a+='</div>';
 
+  // === Evolução do Volume Arrematado (linha crescente / acumulado) ===
+  const arrCumul=arrV.filter(r=>r.dtArremate&&r.valorArrematado>0).sort((a,b)=>a.dtArremate-b.dtArremate);
+  if(arrCumul.length>1){
+    a+='<div class="sec">📈 Evolução do Volume Arrematado</div>';
+    const dtMin=arrCumul[0].dtArremate,dtMax=arrCumul[arrCumul.length-1].dtArremate;
+    const totalCum=arrCumul.reduce((s,r)=>s+r.valorArrematado,0);
+    let cum=0;const pts=arrCumul.map(r=>{cum+=r.valorArrematado;return{dt:r.dtArremate,cum:cum,val:r.valorArrematado,nome:r.nome||''};});
+    const fmtDt=ms=>{const d=new Date(ms);return d.getDate().toString().padStart(2,'0')+'/'+monthNames[d.getMonth()+1]+'/'+d.getFullYear().toString().slice(2);};
+    const fRc=n=>{if(n>=1e6)return'R$ '+(n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'mi';if(n>=1e3)return'R$ '+(n/1e3).toFixed(0)+'k';return'R$ '+Math.round(n);};
+    const W=1000,H=340,PL=78,PR=24,PT=24,PB=46;
+    const innerW=W-PL-PR,innerH=H-PT-PB;
+    const xRange=dtMax-dtMin||1;
+    const yMax=totalCum;
+    const sx=ms=>PL+((ms-dtMin)/xRange)*innerW;
+    const sy=v=>PT+innerH-(v/yMax)*innerH;
+    let pathD='M '+sx(pts[0].dt).toFixed(1)+' '+sy(pts[0].cum).toFixed(1);
+    for(let i=1;i<pts.length;i++)pathD+=' L '+sx(pts[i].dt).toFixed(1)+' '+sy(pts[i].cum).toFixed(1);
+    const areaD=pathD+' L '+sx(pts[pts.length-1].dt).toFixed(1)+' '+sy(0).toFixed(1)+' L '+sx(pts[0].dt).toFixed(1)+' '+sy(0).toFixed(1)+' Z';
+    const yTicks=[0,.25,.5,.75,1].map(p=>yMax*p);
+    const xTicks=[];const dStart=new Date(dtMin);dStart.setDate(1);let cur=new Date(dStart);
+    while(cur.getTime()<=dtMax){xTicks.push(cur.getTime());cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+    const xStep=Math.max(1,Math.ceil(xTicks.length/10));
+    const dias=Math.round((dtMax-dtMin)/(1000*60*60*24));
+    a+='<div class="card"><h3>Volume Arrematado Acumulado</h3><div class="d">'+fmtDt(dtMin)+' → '+fmtDt(dtMax)+' · '+dias+' dias · Total: '+fR(totalCum)+'</div>';
+    a+='<div style="background:var(--chart-bg);border-radius:14px;padding:20px;overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;min-height:320px;display:block">';
+    a+='<defs><linearGradient id="lineGradAcum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8b7cf7" stop-opacity="0.35"/><stop offset="100%" stop-color="#8b7cf7" stop-opacity="0"/></linearGradient></defs>';
+    yTicks.forEach(v=>{const yy=sy(v).toFixed(1);a+='<line x1="'+PL+'" y1="'+yy+'" x2="'+(W-PR)+'" y2="'+yy+'" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 3"/><text x="'+(PL-10)+'" y="'+(parseFloat(yy)+4)+'" text-anchor="end" fill="var(--t2)" font-size="11" font-family="JetBrains Mono">'+fRc(v)+'</text>';});
+    xTicks.forEach((ms,i)=>{if(i%xStep!==0&&i!==xTicks.length-1)return;const xx=sx(ms).toFixed(1);const d=new Date(ms);const lbl=monthNames[d.getMonth()+1]+'/'+d.getFullYear().toString().slice(2);a+='<text x="'+xx+'" y="'+(H-PB+20)+'" text-anchor="middle" fill="var(--t2)" font-size="11" font-family="JetBrains Mono">'+lbl+'</text>';});
+    a+='<path d="'+areaD+'" fill="url(#lineGradAcum)"/><path d="'+pathD+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    const sampleStep=Math.max(1,Math.ceil(pts.length/80));
+    pts.forEach((p,i)=>{const isLast=i===pts.length-1;if(i%sampleStep!==0&&!isLast&&i!==0)return;const cx=sx(p.dt).toFixed(1),cy=sy(p.cum).toFixed(1);const tip='<div class=tt-title>'+fmtDt(p.dt)+'</div><div class=tt-row><span class=tt-label>Acumulado:</span><span class=tt-value>'+fR(p.cum).replace(/\x27/g,'')+'</span></div><div class=tt-row><span class=tt-label>Arrematação:</span><span class=tt-value>'+fR(p.val).replace(/\x27/g,'')+'</span></div>';a+='<circle cx="'+cx+'" cy="'+cy+'" r="3.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5" style="cursor:pointer" onmouseenter="showTip(event,\''+tip+'\')" onmousemove="showTip(event,\''+tip+'\')" onmouseleave="hideTip()"/>';});
+    a+='</svg></div></div>';
+  }
+
   // Quantidade de IMÓVEIS por Turma — fonte: Controle de arrematação (mesma de getFA)
   a+='<div class="sec">🏠 Arrematações por Turma</div>';
   const arrT={},arrTAlunos={},arrTVal={};
