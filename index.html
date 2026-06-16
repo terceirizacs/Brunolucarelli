@@ -982,6 +982,11 @@ function renderAll(cs){
 
   // Quantidade de IMÓVEIS por Turma — fonte: Controle de arrematação (mesma de getFA)
   a+='<div class="sec">🏠 Arrematações por Turma</div>';
+  // Data representativa de cada turma = mes/ano com MAIS alunos (planilha cs, por data de compra)
+  const _turmaMes={};
+  CS.forEach(r=>{const nt=normTurmaStr(r.turma);if(!nt||!r.dtCompra)return;const d=new Date(r.dtCompra);const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!_turmaMes[nt])_turmaMes[nt]={};_turmaMes[nt][mk]=(_turmaMes[nt][mk]||0)+1;});
+  const turmaData={};
+  Object.keys(_turmaMes).forEach(t=>{let best=null,bc=-1;for(const mk in _turmaMes[t]){if(_turmaMes[t][mk]>bc){bc=_turmaMes[t][mk];best=mk;}}if(best){const p=best.split('-');turmaData[t]=monthNames[parseInt(p[1])]+'/'+p[0];}});
   const arrT={},arrTAlunos={},arrTVal={};
   // Contar imóveis do Controle de arrematação (mesmo getFA = mesma fonte da Visão Geral)
   arrV.forEach(r=>{
@@ -998,7 +1003,7 @@ function renderAll(cs){
   a+='<div class="hbar-area" style="height:auto">';
   arrTItems.forEach(([t,cnt,tt,alunos,pctAlunos])=>{
     const w=Math.max(Math.round(cnt/mxAT*100),3);
-    a+='<div class="hbar-row" data-hlbl="'+t+'" data-hcnt="'+fN(cnt)+' imóveis · '+fN(alunos)+' alunos únicos" data-hpct="'+fP(pctAlunos)+' da turma ('+fN(tt)+' alunos)" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:50px;font-weight:700">'+t+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' imóveis</div></div><span class="hbar-pct">'+fN(alunos)+' alunos · '+fP(pctAlunos)+' da turma</span></div>';
+    a+='<div class="hbar-row" data-hlbl="'+t+(turmaData[t]?' · '+turmaData[t]:'')+'" data-hcnt="'+fN(cnt)+' imóveis · '+fN(alunos)+' alunos únicos" data-hpct="'+fP(pctAlunos)+' da turma ('+fN(tt)+' alunos)" onmouseenter="hbarTip(event,this)" onmousemove="hbarTip(event,this)" onmouseleave="hideTip()"><span class="hbar-lbl" style="min-width:120px;font-weight:700">'+t+(turmaData[t]?' <span style="font-weight:500;color:var(--t3);font-size:11px">'+turmaData[t]+'</span>':'')+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:var(--accent)">'+fN(cnt)+' imóveis</div></div><span class="hbar-pct">'+fN(alunos)+' alunos · '+fP(pctAlunos)+' da turma</span></div>';
   });
   a+='</div></div>';
 
