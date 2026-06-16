@@ -984,7 +984,7 @@ function renderAll(cs){
   a+='<div class="sec">🏠 Arrematações por Turma</div>';
   // Data representativa de cada turma = mes/ano com MAIS alunos (planilha cs, por data de compra)
   const _turmaMes={};
-  CS.forEach(r=>{const nt=normTurmaStr(r.turma);if(!nt||!r.dtCompra)return;const d=new Date(r.dtCompra);const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!_turmaMes[nt])_turmaMes[nt]={};_turmaMes[nt][mk]=(_turmaMes[nt][mk]||0)+1;});
+  CS.forEach(r=>{const nt=normTurmaStr(r.turma);const dc=r.dtCompra||r.dtAprov||r.primAcesso;if(!nt||!dc)return;const d=new Date(dc);const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!_turmaMes[nt])_turmaMes[nt]={};_turmaMes[nt][mk]=(_turmaMes[nt][mk]||0)+1;});
   const turmaData={};
   Object.keys(_turmaMes).forEach(t=>{let best=null,bc=-1;for(const mk in _turmaMes[t]){if(_turmaMes[t][mk]>bc){bc=_turmaMes[t][mk];best=mk;}}if(best){const p=best.split('-');turmaData[t]=monthNames[parseInt(p[1])]+'/'+p[0];}});
   const arrT={},arrTAlunos={},arrTVal={};
