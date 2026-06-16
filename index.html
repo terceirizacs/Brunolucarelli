@@ -367,7 +367,7 @@ async function loadData(){
     });
     const tOrd=['T7','T8','T9','T10','T12','T13','T14','T15','T16','T17','T18'];
     const sT=[...tSet].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
-    buildMS('fTurma',sT);buildMS('fTipoAcesso',[...aSet].sort());buildMS('fFunil',fOrd.filter(f=>fSet.has(f)));
+    buildMS('fTurma',sT,computeTurmaData(CS));buildMS('fTipoAcesso',[...aSet].sort());buildMS('fFunil',fOrd.filter(f=>fSet.has(f)));
     
     renderAll(CS);
     document.getElementById('loadingOverlay').style.display='none';
@@ -406,7 +406,7 @@ function toggleTheme(){const h=document.documentElement,d=h.getAttribute('data-t
 }
 function switchTab(t,b){document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');b.classList.add('active');if(t==='atendimento'&&typeof renderAtendimento==='function')renderAtendimento();}
 
-function buildMS(id,vals){const w=document.getElementById(id);let h='<div class="ms-trigger" onclick="toggleMS(this)">Todos</div><div class="ms-dropdown"><div class="ms-selall" onclick="toggleAll(this)">☑ Marcar todos</div>';vals.forEach(v=>{h+='<div class="ms-option" onclick="toggleOpt(this)" data-val="'+v+'"><div class="ms-check"></div>'+v+'</div>';});h+='</div>';w.innerHTML=h;}
+function buildMS(id,vals,labelMap){const w=document.getElementById(id);let h='<div class="ms-trigger" onclick="toggleMS(this)">Todos</div><div class="ms-dropdown"><div class="ms-selall" onclick="toggleAll(this)">☑ Marcar todos</div>';vals.forEach(v=>{var lbl=(labelMap&&labelMap[v])?v+' <span style="color:var(--t3);font-weight:400;font-size:11px">· '+labelMap[v]+'</span>':v;h+='<div class="ms-option" onclick="toggleOpt(this)" data-val="'+v+'"><div class="ms-check"></div>'+lbl+'</div>';});h+='</div>';w.innerHTML=h;}
 function toggleMS(t){const dd=t.nextElementSibling,o=dd.classList.contains('show');document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});if(!o){dd.classList.add('show');t.classList.add('open');}}
 function toggleOpt(o){o.classList.toggle('selected');updTrig(o.closest('.ms-wrap'));}
 function toggleAll(e){const w=e.closest('.ms-wrap'),os=w.querySelectorAll('.ms-option'),all=w.querySelectorAll('.ms-option.selected').length===os.length;os.forEach(o=>{if(all)o.classList.remove('selected');else o.classList.add('selected');});updTrig(w);}
@@ -451,6 +451,19 @@ function normTurmaStr(s){
 // Para arrematação: tenta turma2 (formulário) primeiro, depois turma (manual)
 function normTurma(r){
   return normTurmaStr(r.turma2)||normTurmaStr(r.turma);
+}
+// Mapa turma -> "Mes/Ano" (mes/ano com MAIS alunos da turma; data de compra vazia no Bruno, usa aprovacao/1o acesso)
+function computeTurmaData(cs){
+  var tm={};
+  (cs||[]).forEach(function(r){
+    var nt=normTurmaStr(r.turma); var dc=r.dtCompra||r.dtAprov||r.primAcesso;
+    if(!nt||!dc)return;
+    var d=new Date(dc); var mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(!tm[nt])tm[nt]={}; tm[nt][mk]=(tm[nt][mk]||0)+1;
+  });
+  var out={};
+  Object.keys(tm).forEach(function(t){var best=null,bc=-1;for(var mk in tm[t]){if(tm[t][mk]>bc){bc=tm[t][mk];best=mk;}}if(best){var p=best.split('-');out[t]=monthNames[parseInt(p[1])]+'/'+p[0];}});
+  return out;
 }
 function getFA(){const ft=getMS('fTurma');
 let rows=AR.filter(r=>{
@@ -545,10 +558,12 @@ function renderAll(cs){
   fOrdV.forEach((f,i)=>{const q=fdV[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBgV[i]+';color:'+fColV[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColV[i]+'"></div></div></div>';});
   h+='</div></div>';
 
-  // Comparativo por Turma — T12+ (todas que existem na base, dinâmico)
-  const compData=Object.keys(turmaC).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&turmaC[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T',''))).map(t=>[t,turmaC[t]]);
+  // Comparativo por Turma — T12+ (todas que existem na base, dinâmico) com data (mes/ano) da turma
+  const _td=computeTurmaData(CS);
+  const _compT=Object.keys(turmaC).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&turmaC[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
+  const compData=_compT.map(t=>[t+(_td[t]?' · '+_td[t]:''),turmaC[t]]);
   if(compData.length){
-    const ultima=compData[compData.length-1][0];
+    const ultima=_compT[_compT.length-1];
     h+='<div class="sec">👥 Comparativo por Turma (T12 → '+ultima+')</div><div class="card"><h3>Alunos por Turma</h3><div class="d">T12 até a turma atual</div><div class="hbar-area" style="height:auto">';
     h+=hbarChart(compData,'var(--accent)',total);
     h+='</div></div>';
@@ -982,11 +997,8 @@ function renderAll(cs){
 
   // Quantidade de IMÓVEIS por Turma — fonte: Controle de arrematação (mesma de getFA)
   a+='<div class="sec">🏠 Arrematações por Turma</div>';
-  // Data representativa de cada turma = mes/ano com MAIS alunos (planilha cs, por data de compra)
-  const _turmaMes={};
-  CS.forEach(r=>{const nt=normTurmaStr(r.turma);const dc=r.dtCompra||r.dtAprov||r.primAcesso;if(!nt||!dc)return;const d=new Date(dc);const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!_turmaMes[nt])_turmaMes[nt]={};_turmaMes[nt][mk]=(_turmaMes[nt][mk]||0)+1;});
-  const turmaData={};
-  Object.keys(_turmaMes).forEach(t=>{let best=null,bc=-1;for(const mk in _turmaMes[t]){if(_turmaMes[t][mk]>bc){bc=_turmaMes[t][mk];best=mk;}}if(best){const p=best.split('-');turmaData[t]=monthNames[parseInt(p[1])]+'/'+p[0];}});
+  // Data representativa de cada turma (mes/ano com mais alunos) — funcao compartilhada
+  const turmaData=computeTurmaData(CS);
   const arrT={},arrTAlunos={},arrTVal={};
   // Contar imóveis do Controle de arrematação (mesmo getFA = mesma fonte da Visão Geral)
   arrV.forEach(r=>{
