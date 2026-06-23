@@ -1432,7 +1432,7 @@ function renderDetalhamento(cs){
     return{
       nome:r.nome||'-',turma:nt,prog:prog,
       arrCount:arrCount,arrStr:arrStr,
-      ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',
+      ultAcesso:ult,ultAcessoStr:ult?ult.toLocaleDateString('pt-BR'):'-',ultAcessoTs:ult?ult.getTime():0,
       respondeu:respondeu,respondeuCount:respondeu
     };
   });
@@ -1463,7 +1463,7 @@ function drawDetTable(fromSearch){
     {key:'turma',label:'TURMA'},
     {key:'prog',label:'PROGRESSO'},
     {key:'arrCount',label:'ARREMATAÇÕES'},
-    {key:'ultAcessoStr',label:'ÚLTIMO ACESSO'},
+    {key:'ultAcessoTs',label:'ÚLTIMO ACESSO'},
     {key:'respondeu',label:'RESPONDEU (0-4)'}
   ];
   colDefs.forEach(c=>{const icon=_detSort===c.key?(_detDir===1?' ↑':' ↓'):'';d+='<th onclick="detSort(\''+c.key+'\')">'+c.label+'<span class="sort-icon">'+icon+'</span></th>';});
