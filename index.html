@@ -346,22 +346,29 @@ async function loadData(){
       badge.textContent='🟢 Atualizado '+fmtUpd;
     }
     
-    // Build sets de arrematadores (da aba Controle de arrematação) — mesmos filtros do getFA
+    // Build sets de arrematadores + mapa turma (da aba Controle de arrematação) — mesmos filtros do getFA
     arrNomesSet=new Set();
     arrEmailsSet=new Set();
+    ARR_TURMA_NOME={};ARR_TURMA_EMAIL={};
     AR.forEach(a=>{
-      if(!normTurma(a))return;
+      const at=normTurma(a);
+      if(!at)return;
       if((a.nome||'').toLowerCase().includes('grupo'))return;
       const val=(a.validade||'').toString().trim();
       if(val&&val!=='Válido')return;
-      if(a.nome)arrNomesSet.add(normNome(a.nome));
-      if(a.email)arrEmailsSet.add(a.email.trim().toLowerCase());
+      const nN=normNome(a.nome);
+      const eL=(a.email||'').trim().toLowerCase();
+      if(nN)arrNomesSet.add(nN);
+      if(eL)arrEmailsSet.add(eL);
+      // Turma da arrematação (1ª ocorrência válida) — base para a "turma efetiva"
+      if(eL&&!ARR_TURMA_EMAIL[eL])ARR_TURMA_EMAIL[eL]=at;
+      if(nN&&!ARR_TURMA_NOME[nN])ARR_TURMA_NOME[nN]=at;
     });
 
-    // Build filters — normalizar turma para TXX
+    // Build filters — usar TURMA EFETIVA (arrematação se arrematou, senão planilha cs)
     const tSet=new Set(),aSet=new Set(),fSet=new Set();
     CS.forEach(r=>{
-      const nt=normTurmaStr(r.turma);
+      const nt=effTurma(r);
       if(nt)tSet.add(nt);
       if(r.funilCalc)fSet.add(r.funilCalc);
       aSet.add(isArrematador(r)?'Arrematou Imóvel':'Não Arrematou Imóvel');
@@ -403,6 +410,15 @@ function isArrematador(r){
   const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();
   return arrNomesSet.has(nN)||(eLow&&arrEmailsSet.has(eLow));
 }
+// ===== TURMA EFETIVA — arrematação (fonte certa) se arrematou, senão planilha cs =====
+let ARR_TURMA_NOME={},ARR_TURMA_EMAIL={};
+function effTurma(r){
+  const em=(r.email||'').trim().toLowerCase();
+  if(em&&ARR_TURMA_EMAIL[em])return ARR_TURMA_EMAIL[em]; // e-mail primeiro (mais confiável)
+  const nN=normNome(r.nome);
+  if(nN&&ARR_TURMA_NOME[nN])return ARR_TURMA_NOME[nN];
+  return normTurmaStr(r.turma);
+}
 // ===== STATUS MENTORIA (Ativo/Inativo) — fonte: Dados Consolidados =====
 let STATUS_EMAIL={},STATUS_NOME={};
 function buildStatusMaps(){
@@ -443,7 +459,7 @@ function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFun
 // Se filtro arrematou ativo E turma selecionada, pré-calcular sets da turma
 let _arrN=arrNomesSet,_arrE=arrEmailsSet;
 if(fa.length&&ft.length){const faRows=getFA();_arrN=new Set();_arrE=new Set();faRows.forEach(a=>{if(a.nome)_arrN.add(normNome(a.nome));if(a.email)_arrE.add(a.email.trim().toLowerCase());});}
-return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();const isArr=_arrN.has(nN)||(eLow&&_arrE.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(fst.length){const st=statusOf(r);if(!st||!fst.includes(st))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+return CS.filter(r=>{if(ft.length){const nt=effTurma(r);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();const isArr=_arrN.has(nN)||(eLow&&_arrE.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(fst.length){const st=statusOf(r);if(!st||!fst.includes(st))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
 // Normaliza qualquer formato de turma para "T7", "T17", etc.
 // Exemplos:
 //   "Mentoria T17 Orderbump T18 a T21" -> "T17"
@@ -1386,14 +1402,11 @@ function renderRenov(){
 function rnGo(p){RN_PAGE=p;renderRenov();}
 function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=-1;}RN_PAGE=1;renderRenov();}
 
-let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='';
+let _detData=[],_detSort='nome',_detDir=1,_detPage=0,_detPerPage=20,_detSearch='',_detOnlyArr=false;
 function renderDetalhamento(cs){
-  // Contar arrematações por nome e email (normalizado) a partir da variável AR
+  // Contar arrematações por email (preferencial) e nome (fallback) a partir da variável AR
   const arrCountMap={};
   const arrCountByEmail={};
-  // Turma a partir do Controle de arrematação (mesma fonte da aba Arrematações)
-  const arrTurmaByNome={};
-  const arrTurmaByEmail={};
   AR.forEach(a=>{
     if(!a.nome)return;
     const nn=normNome(a.nome);
@@ -1401,25 +1414,20 @@ function renderDetalhamento(cs){
     if((a.nome||'').toLowerCase().includes('grupo'))return;
     const val=(a.validade||'').toString().trim();
     if(val&&val!=='Válido')return;
-    const at=normTurma(a);
-    if(!at)return;
+    if(!normTurma(a))return;
     arrCountMap[nn]=(arrCountMap[nn]||0)+1;
-    if(a.email)arrCountByEmail[a.email]=(arrCountByEmail[a.email]||0)+1;
-    if(nn&&!arrTurmaByNome[nn])arrTurmaByNome[nn]=at;
     const aem=(a.email||'').trim().toLowerCase();
-    if(aem&&!arrTurmaByEmail[aem])arrTurmaByEmail[aem]=at;
+    if(aem)arrCountByEmail[aem]=(arrCountByEmail[aem]||0)+1;
   });
   _detData=cs.map(r=>{
     const nn=normNome(r.nome);
     const emL=(r.email||'').trim().toLowerCase();
-    // Turma: para arrematadores, usar a turma do Controle de arrematação (fonte certa);
-    // senão, cair na coluna Turma da planilha cs
-    const arrTurma=arrTurmaByNome[nn]||(emL?arrTurmaByEmail[emL]:null);
-    const nt=arrTurma||normTurmaStr(r.turma)||'-';
+    // Turma efetiva: arrematação (e-mail primeiro) e, se não arrematou, a coluna da planilha cs
+    const nt=effTurma(r)||'-';
     const prog=r.progresso!=null?r.progresso:0;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
-    // Contar arrematações do aluno (por nome ou email como fallback)
-    const arrCount=arrCountMap[nn]||(r.email?arrCountByEmail[r.email]:0)||0;
+    // Contar arrematações do aluno (por email primeiro, nome como fallback)
+    const arrCount=(emL&&arrCountByEmail[emL])||arrCountMap[nn]||0;
     const arrStr=arrCount>0?(arrCount===1?'1 arrematação':arrCount+' arrematações'):'—';
     // Respondeu = coluna AB (mensagemAluno) tem conteúdo
     // Contar respostas das 4 colunas: Respondeu Onboarding, Tarefas S1, Tarefas S2, Tarefas S3
@@ -1441,6 +1449,7 @@ function renderDetalhamento(cs){
 }
 function drawDetTable(fromSearch){
   let data=_detData;
+  if(_detOnlyArr)data=data.filter(r=>r.arrCount>0);
   if(_detSearch){const s=_detSearch.toLowerCase();data=data.filter(r=>r.nome.toLowerCase().includes(s)||r.turma.toLowerCase().includes(s));}
   data.sort((a,b)=>{let va=a[_detSort],vb=b[_detSort];if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va==null)va='';if(vb==null)vb='';return va<vb?-_detDir:va>vb?_detDir:0;});
   const totalR=data.length;const totalPages=Math.ceil(totalR/_detPerPage);
@@ -1450,7 +1459,9 @@ function drawDetTable(fromSearch){
   const cDet=document.getElementById('cDet');
   if(!fromSearch||!cDet.querySelector('.det-search')){
     let top='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
+    top+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
     top+='<input class="det-search" placeholder="Buscar aluno..." value="'+_detSearch+'" oninput="_detSearch=this.value;_detPage=0;drawDetTable(true)">';
+    top+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);cursor:pointer;user-select:none"><input type="checkbox" '+(_detOnlyArr?'checked':'')+' onchange="detToggleArr(this.checked)" style="cursor:pointer">Apenas arrematadores</label></div>';
     top+='<span class="det-count" style="color:var(--t3);font-size:13px">'+fN(totalR)+' aluno(s)</span></div>';
     top+='<div id="detTableArea"></div>';
     cDet.innerHTML=top;
@@ -1498,6 +1509,7 @@ function drawDetTable(fromSearch){
   const area=document.getElementById('detTableArea');if(area)area.innerHTML=d;
 }
 function detSort(key){if(_detSort===key)_detDir*=-1;else{_detSort=key;_detDir=1;}_detPage=0;drawDetTable(false);}
+function detToggleArr(v){_detOnlyArr=v;_detPage=0;drawDetTable(false);}
 function detPage(p){_detPage=p;drawDetTable(false);}
 
 function renderNPS(){
