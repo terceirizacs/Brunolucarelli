@@ -310,6 +310,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurma"></div></div>
 <div class="filter-group"><label class="filter-label">Arrematou Imóvel</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
 <div class="filter-group"><label class="filter-label">Funil Calculado</label><div class="ms-wrap" id="fFunil"></div></div>
+<div class="filter-group"><label class="filter-label">Status Mentoria</label><div class="ms-wrap" id="fStatus"></div></div>
 <div class="filter-group"><label class="filter-label">Data da Compra</label><div class="filter-date-row"><input type="date" class="filter-date" id="fDe"><input type="date" class="filter-date" id="fAte"></div></div>
 </div>
 <div class="active-filters" id="tagsArea"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
@@ -368,7 +369,10 @@ async function loadData(){
     const tOrd=['T7','T8','T9','T10','T12','T13','T14','T15','T16','T17','T18'];
     const sT=[...tSet].sort((a,b)=>{const na=parseInt(a.replace('T','')),nb=parseInt(b.replace('T',''));return na-nb;});
     buildMS('fTurma',sT,computeTurmaData(CS));buildMS('fTipoAcesso',[...aSet].sort());buildMS('fFunil',fOrd.filter(f=>fSet.has(f)));
-    
+    // Status Mentoria (Ativo/Inativo) — fonte: Dados Consolidados
+    buildStatusMaps();
+    if(Object.keys(STATUS_EMAIL).length||Object.keys(STATUS_NOME).length){buildMS('fStatus',['Ativo','Inativo']);}
+
     renderAll(CS);
     document.getElementById('loadingOverlay').style.display='none';
     document.getElementById('mainWrap').style.display='block';
@@ -399,6 +403,26 @@ function isArrematador(r){
   const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();
   return arrNomesSet.has(nN)||(eLow&&arrEmailsSet.has(eLow));
 }
+// ===== STATUS MENTORIA (Ativo/Inativo) — fonte: Dados Consolidados =====
+let STATUS_EMAIL={},STATUS_NOME={};
+function buildStatusMaps(){
+  STATUS_EMAIL={};STATUS_NOME={};
+  (CONSOLIDADO||[]).forEach(c=>{
+    const ativo=(c.validade||'').toString().toLowerCase().trim()!=='inativo';
+    const em=(c.email||'').trim().toLowerCase();
+    const nn=normNome(c.nome);
+    // Ativo tem prioridade: se o aluno tem ao menos um registro ativo, conta como Ativo
+    if(em){if(ativo)STATUS_EMAIL[em]='Ativo';else if(!(em in STATUS_EMAIL))STATUS_EMAIL[em]='Inativo';}
+    if(nn){if(ativo)STATUS_NOME[nn]='Ativo';else if(!(nn in STATUS_NOME))STATUS_NOME[nn]='Inativo';}
+  });
+}
+function statusOf(r){
+  const em=(r.email||'').trim().toLowerCase();
+  if(em&&STATUS_EMAIL[em])return STATUS_EMAIL[em];
+  const nn=normNome(r.nome);
+  if(nn&&STATUS_NOME[nn])return STATUS_NOME[nn];
+  return null;
+}
 const SEPT25=new Date(2025,8,1).getTime();
 const monthNames={1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'};
 
@@ -415,11 +439,11 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 
-function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;
+function getFC(){const ft=getMS('fTurma'),fa=getMS('fTipoAcesso'),ff=getMS('fFunil'),fst=getMS('fStatus'),de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null,ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;
 // Se filtro arrematou ativo E turma selecionada, pré-calcular sets da turma
 let _arrN=arrNomesSet,_arrE=arrEmailsSet;
 if(fa.length&&ft.length){const faRows=getFA();_arrN=new Set();_arrE=new Set();faRows.forEach(a=>{if(a.nome)_arrN.add(normNome(a.nome));if(a.email)_arrE.add(a.email.trim().toLowerCase());});}
-return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();const isArr=_arrN.has(nN)||(eLow&&_arrE.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
+return CS.filter(r=>{if(ft.length){const nt=normTurmaStr(r.turma);if(!nt||!ft.includes(nt))return false;}if(fa.length){const nN=normNome(r.nome),eLow=(r.email||'').trim().toLowerCase();const isArr=_arrN.has(nN)||(eLow&&_arrE.has(eLow));const t=isArr?'Arrematou Imóvel':'Não Arrematou Imóvel';if(!fa.includes(t))return false;}if(fst.length){const st=statusOf(r);if(!st||!fst.includes(st))return false;}if(ff.length&&!ff.includes(r.funilCalc))return false;if(de&&r.dtCompra&&r.dtCompra<de)return false;if(ate&&r.dtCompra&&r.dtCompra>ate)return false;return true;});}
 // Normaliza qualquer formato de turma para "T7", "T17", etc.
 // Exemplos:
 //   "Mentoria T17 Orderbump T18 a T21" -> "T17"
@@ -477,7 +501,7 @@ let rows=AR.filter(r=>{
 if(ft.length)rows=rows.filter(r=>ft.includes(normTurma(r)));
 return rows;}
 
-function applyFilters(){const rows=getFC(),tags=[];getMS('fTurma').forEach(v=>tags.push(v));getMS('fTipoAcesso').forEach(v=>tags.push(v));getMS('fFunil').forEach(v=>tags.push(v));if(document.getElementById('fDe').value)tags.push('De: '+document.getElementById('fDe').value);if(document.getElementById('fAte').value)tags.push('Até: '+document.getElementById('fAte').value);const a=document.getElementById('tagsArea');a.innerHTML=tags.length?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>':'<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(rows);}
+function applyFilters(){const rows=getFC(),tags=[];getMS('fTurma').forEach(v=>tags.push(v));getMS('fTipoAcesso').forEach(v=>tags.push(v));getMS('fFunil').forEach(v=>tags.push(v));getMS('fStatus').forEach(v=>tags.push('Mentoria: '+v));if(document.getElementById('fDe').value)tags.push('De: '+document.getElementById('fDe').value);if(document.getElementById('fAte').value)tags.push('Até: '+document.getElementById('fAte').value);const a=document.getElementById('tagsArea');a.innerHTML=tags.length?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>':'<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(rows);}
 function resetFilters(){document.querySelectorAll('.ms-option.selected').forEach(o=>o.classList.remove('selected'));document.querySelectorAll('.ms-trigger').forEach(t=>t.innerHTML='Todos');document.querySelectorAll('.filter-date').forEach(d=>d.value='');document.getElementById('tagsArea').innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(CS);}
 
 const fColors=['var(--pink)','var(--orange)','var(--gold)','var(--red)','var(--teal)','var(--green)','var(--t3)'];
@@ -1367,6 +1391,9 @@ function renderDetalhamento(cs){
   // Contar arrematações por nome e email (normalizado) a partir da variável AR
   const arrCountMap={};
   const arrCountByEmail={};
+  // Turma a partir do Controle de arrematação (mesma fonte da aba Arrematações)
+  const arrTurmaByNome={};
+  const arrTurmaByEmail={};
   AR.forEach(a=>{
     if(!a.nome)return;
     const nn=normNome(a.nome);
@@ -1374,16 +1401,24 @@ function renderDetalhamento(cs){
     if((a.nome||'').toLowerCase().includes('grupo'))return;
     const val=(a.validade||'').toString().trim();
     if(val&&val!=='Válido')return;
-    if(!normTurma(a))return;
+    const at=normTurma(a);
+    if(!at)return;
     arrCountMap[nn]=(arrCountMap[nn]||0)+1;
     if(a.email)arrCountByEmail[a.email]=(arrCountByEmail[a.email]||0)+1;
+    if(nn&&!arrTurmaByNome[nn])arrTurmaByNome[nn]=at;
+    const aem=(a.email||'').trim().toLowerCase();
+    if(aem&&!arrTurmaByEmail[aem])arrTurmaByEmail[aem]=at;
   });
   _detData=cs.map(r=>{
-    const nt=normTurmaStr(r.turma)||'-';
+    const nn=normNome(r.nome);
+    const emL=(r.email||'').trim().toLowerCase();
+    // Turma: para arrematadores, usar a turma do Controle de arrematação (fonte certa);
+    // senão, cair na coluna Turma da planilha cs
+    const arrTurma=arrTurmaByNome[nn]||(emL?arrTurmaByEmail[emL]:null);
+    const nt=arrTurma||normTurmaStr(r.turma)||'-';
     const prog=r.progresso!=null?r.progresso:0;
     const ult=r.ultAcesso?new Date(r.ultAcesso):null;
     // Contar arrematações do aluno (por nome ou email como fallback)
-    const nn=normNome(r.nome);
     const arrCount=arrCountMap[nn]||(r.email?arrCountByEmail[r.email]:0)||0;
     const arrStr=arrCount>0?(arrCount===1?'1 arrematação':arrCount+' arrematações'):'—';
     // Respondeu = coluna AB (mensagemAluno) tem conteúdo
