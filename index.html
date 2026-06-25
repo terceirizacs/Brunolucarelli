@@ -439,8 +439,11 @@ function statusOf(r){
   const rv=pBRdate(r.statusRenov||r.tipoAluno);
   if(rv!==null&&rv>=NOW)return 'Ativo';
   const em=(r.email||'').trim().toLowerCase();
-  if(em&&STATUS_EMAIL[em])return STATUS_EMAIL[em];
   const nn=normNome(r.nome);
+  // Status por pessoa: se o aluno tem QUALQUER vínculo ativo (mesmo nome, outro e-mail), é Ativo.
+  // Cobre quem voltou com e-mail novo — a matrícula antiga inativa não deve marcá-lo como Inativo.
+  if(nn&&STATUS_NOME[nn]==='Ativo')return 'Ativo';
+  if(em&&STATUS_EMAIL[em])return STATUS_EMAIL[em];
   if(nn&&STATUS_NOME[nn])return STATUS_NOME[nn];
   return null;
 }
