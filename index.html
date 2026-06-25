@@ -432,7 +432,12 @@ function buildStatusMaps(){
     if(nn){if(ativo)STATUS_NOME[nn]='Ativo';else if(!(nn in STATUS_NOME))STATUS_NOME[nn]='Inativo';}
   });
 }
+// Data de validade (dd/mm/aaaa) vinda da planilha cs (col N "Tipo Aluno"/statusRenov)
+function pBRdate(s){const m=String(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(!m)return null;let y=+m[3];if(y<100)y+=2000;return new Date(y,(+m[2])-1,+m[1]).getTime();}
 function statusOf(r){
+  // Regra "tem data de validade no futuro = Ativo": vale mesmo que a aba Dados Consolidados ainda diga "Inativo"
+  const rv=pBRdate(r.statusRenov||r.tipoAluno);
+  if(rv!==null&&rv>=NOW)return 'Ativo';
   const em=(r.email||'').trim().toLowerCase();
   if(em&&STATUS_EMAIL[em])return STATUS_EMAIL[em];
   const nn=normNome(r.nome);
