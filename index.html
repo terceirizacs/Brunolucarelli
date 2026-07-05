@@ -328,6 +328,11 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 
 const PWD='Brunolucarelli123';
 const fOrd=['Nunca acessou','Acessou mas não consumiu','Consumiu pouco','Desengajado','Engajado','Recompra','Verificar'];
+function helpQ(def){return '<span onmouseenter="hqShow(event,'+def+')" onmousemove="hqShow(event,'+def+')" onmouseleave="hqHide()" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:11px;font-weight:700;cursor:help;margin-left:8px;vertical-align:middle">?</span>';}
+var _HQT;function hqTip(){if(!_HQT){_HQT=document.createElement('div');_HQT.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:rgba(15,15,15,.96);color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;max-width:300px;font-size:12px;opacity:0;transition:opacity .15s;box-shadow:0 12px 40px rgba(0,0,0,.5)';document.body.appendChild(_HQT);}return _HQT;}
+function hqShow(e,html){var t=hqTip();t.innerHTML=html;t.style.opacity='1';t.style.left=Math.min(e.clientX+14,window.innerWidth-320)+'px';t.style.top=Math.max(e.clientY-60,8)+'px';}
+function hqHide(){if(_HQT)_HQT.style.opacity='0';}
+var FUNIL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos o funil</div><div style="font-size:11px;line-height:1.8;text-align:left"><b style=color:#f87171>Nunca acessou</b>: comprou mas nunca fez login.<br><b style=color:#fb923c>Acessou mas não consumiu</b>: logou mas está com 0% de progresso.<br><b style=color:#fbbf24>Consumiu pouco</b>: progresso abaixo de 10% e +30 dias sem acessar.<br><b style=color:#f472b6>Desengajado</b>: progresso de 10% a 40% e +30 dias sem acessar.<br><b style=color:#2dd4bf>Engajado</b>: acessou nos últimos 30 dias (progresso até 40%).<br><b style=color:#34d399>Recompra</b>: progresso de 40% ou mais (perfil que costuma renovar).<br><b style=color:#94a3b8>Verificar</b>: progresso ausente / a checar.</div>';
 function doLogin(){const v=document.getElementById('pwdInput').value;if(v===PWD){document.getElementById('loginScreen').style.display='none';document.getElementById('loadingOverlay').style.display='flex';loadData();}else{document.getElementById('pwdError').style.display='block';}}
 
 const API_URL='https://script.google.com/macros/s/AKfycby9G0502p4MgiAdLN1KlJiBxZTzJk0be-Z7SkichhUOehJMEpyEVKYXW4ZKNvvmzKaC/exec';
@@ -594,7 +599,7 @@ function renderAll(cs){
   h+='</div>';
 
   // Jornada
-  h+='<div class="sec">📊 Jornada do Aluno</div>';
+  h+='<div class="sec">📊 Jornada do Aluno'+helpQ('FUNIL_DEF')+'</div>';
   const fd=fOrd.map(f=>funil[f]||0);
   const fOrdV=[],fdV=[],fColV=[],fBgV=[];fOrd.forEach((f,i)=>{if(fd[i]>0){fOrdV.push(f);fdV.push(fd[i]);fColV.push(fColors[i]);fBgV.push(fBg[i]);}});
   const mxF=Math.max(...fdV,1);
