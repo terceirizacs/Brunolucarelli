@@ -180,6 +180,29 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 .pq-note{font-size:12px;color:var(--t3);margin:-8px 0 16px;line-height:1.5}
 .pq-q{border-left:3px solid var(--accent);padding:8px 12px;margin-bottom:8px;font-size:13px;color:var(--t2);background:var(--track-bg);border-radius:0 10px 10px 0;font-style:italic}
 .pq-empty{color:var(--t3);padding:40px;text-align:center;font-size:14px}
+.pq-click{cursor:pointer;transition:transform .15s,border-color .15s}
+.pq-h.pq-click:hover{transform:translateY(-2px);border-color:var(--c)}
+.pq-r.pq-click{border-radius:8px;margin-left:-6px;margin-right:-6px;padding:2px 6px}
+.pq-r.pq-click:hover{background:var(--track-bg)}
+.pq-h-ver{font-size:11px;font-weight:600;color:var(--c);margin-top:10px;opacity:.85}
+.pq-ov{position:fixed;inset:0;background:rgba(2,6,23,.6);backdrop-filter:blur(3px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+.pq-md{background:var(--bg);border:1px solid var(--border);border-radius:20px;width:100%;max-width:1100px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.pq-md-h{padding:20px 22px 14px;border-bottom:1px solid var(--border)}
+.pq-md-k{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px}
+.pq-md-t{font-size:19px;font-weight:700;margin-top:4px;line-height:1.3}
+.pq-md-a{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.pq-md-a input{flex:1;min-width:180px;padding:8px 12px;border-radius:9px;border:1px solid var(--border);background:var(--track-bg);color:var(--t1);font-size:13px}
+.pq-btn{padding:8px 12px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:600 12px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.pq-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pq-x{margin-left:auto;font-size:18px;line-height:1;padding:6px 11px}
+.pq-md-b{overflow:auto;padding:0 8px 8px}
+.pq-tb{width:100%;border-collapse:collapse;font-size:13px}
+.pq-tb th{position:sticky;top:0;background:var(--bg);text-align:left;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding:12px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.pq-tb td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--t2)}
+.pq-tb td b{color:var(--t1);font-weight:600}
+.pq-tb tr:hover td{background:var(--track-bg)}
+.pq-wa{color:var(--green);text-decoration:none;font-family:'JetBrains Mono';font-size:12px;white-space:nowrap}
+.pq-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(139,124,247,.12);color:var(--accent);margin-top:3px}
 .ins-g{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:768px){.ins-g{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}}
 .ins{padding:16px 20px;border-radius:14px;border:1px solid}
@@ -1576,6 +1599,11 @@ var PQ_ROTULO={
   ocupado:{'Sim':'Sim, está ocupado','Não':'Não tem ciência','Não tenho essa informação':'Não tem essa informação','Imóvel está desocupado':'Imóvel está desocupado'},
   aluno:{'Sim':'Aluno da mentoria','Não':'Não é aluno'}
 };
+var PQ_CLK=[],PQ_LISTA=null,PQ_BUSCA='';
+function pqRot(campo,p){return (PQ_ROTULO[campo]&&PQ_ROTULO[campo][p])||p;}
+function pqPartes(campo,v,multi){v=String(v||'').trim();if(!v)return [];return (multi?v.split(/,\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/):[v]).map(function(p){return pqRot(campo,p.trim());}).filter(Boolean);}
+// Guarda o que cada clique deve listar: campo + rótulos aceitos
+function pqReg(titulo,campo,labels,multi){PQ_CLK.push({titulo:titulo,campo:campo,labels:labels,multi:!!multi});return PQ_CLK.length-1;}
 function pqEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function pqSetPub(v){PQ_F.pub=v;renderPesqAC();}
 function pqSetData(){var a=document.getElementById('pqDe'),b=document.getElementById('pqAte');PQ_F.de=a?a.value:'';PQ_F.ate=b?b.value:'';renderPesqAC();}
@@ -1595,15 +1623,14 @@ function pqRows(){
 function pqConta(rows,campo,multi){
   var m={},n=0;
   rows.forEach(function(o){
-    var v=String(o[campo]||'').trim();if(!v)return;n++;
-    var partes=multi?v.split(/,\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/):[v];
-    partes.forEach(function(p){p=p.trim();if(!p)return;var l=(PQ_ROTULO[campo]&&PQ_ROTULO[campo][p])||p;m[l]=(m[l]||0)+1;});
+    var partes=pqPartes(campo,o[campo],multi);if(!partes.length)return;n++;
+    partes.forEach(function(l){m[l]=(m[l]||0)+1;});
   });
   var it=Object.keys(m).map(function(k){return [k,m[k]];});
   var ord=PQ_ORDEM[campo];
   if(ord)it.sort(function(a,b){var ia=ord.indexOf(a[0]),ib=ord.indexOf(b[0]);if(ia<0)ia=99;if(ib<0)ib=99;return ia-ib||b[1]-a[1];});
   else it.sort(function(a,b){return b[1]-a[1];});
-  return {n:n,itens:it};
+  return {n:n,itens:it,campo:campo,multi:!!multi};
 }
 function pqPct(x,n){return n?Math.round(x/n*1000)/10:0;}
 function pqFmtP(p){return String(p).replace('.',',')+'%';}
@@ -1613,19 +1640,77 @@ function pqCard(titulo,cnt,cor,obs){
   var mx=Math.max.apply(null,cnt.itens.map(function(i){return i[1];}));
   cnt.itens.forEach(function(i){
     var p=pqPct(i[1],cnt.n),top=i[1]===mx;
-    h+='<div class="pq-r"><div class="pq-r-l"><b style="'+(top?'':'font-weight:500;color:var(--t2)')+'">'+pqEsc(i[0])+'</b><span>'+fN(i[1])+'</span></div><div class="pq-r-t"><div class="pq-r-f" style="width:'+Math.max(p,1.5)+'%;background:'+cor+';opacity:'+(top?1:.45)+'"></div></div><div class="pq-r-p" style="color:'+(top?cor:'var(--t2)')+'">'+pqFmtP(p)+'</div></div>';
+    var ci=pqReg(titulo+' → '+i[0],cnt.campo,[i[0]],cnt.multi);
+    h+='<div class="pq-r pq-click" title="Clique para ver quem respondeu" onclick="pqAbrir('+ci+')"><div class="pq-r-l"><b style="'+(top?'':'font-weight:500;color:var(--t2)')+'">'+pqEsc(i[0])+'</b><span>'+fN(i[1])+'</span></div><div class="pq-r-t"><div class="pq-r-f" style="width:'+Math.max(p,1.5)+'%;background:'+cor+';opacity:'+(top?1:.45)+'"></div></div><div class="pq-r-p" style="color:'+(top?cor:'var(--t2)')+'">'+pqFmtP(p)+'</div></div>';
   });
   if(obs)h+='<div style="font-size:11px;color:var(--t3);margin-top:6px">'+obs+'</div>';
   return h+'</div>';
 }
 function pqAm(n){return n<30?' · amostra pequena':'';}
-function pqHero(cor,k,v,t,s){return '<div class="pq-h" style="--c:'+cor+'"><div class="pq-h-k">'+k+'</div><div class="pq-h-v">'+v+'</div><div class="pq-h-t">'+t+'</div>'+(s?'<div class="pq-h-s">'+s+'</div>':'')+'</div>';}
+function pqHero(cor,k,v,t,s,ci){var cl=(ci!=null);return '<div class="pq-h'+(cl?' pq-click':'')+'" style="--c:'+cor+'"'+(cl?' onclick="pqAbrir('+ci+')"':'')+'><div class="pq-h-k">'+k+'</div><div class="pq-h-v">'+v+'</div><div class="pq-h-t">'+t+'</div>'+(s?'<div class="pq-h-s">'+s+'</div>':'')+(cl?'<div class="pq-h-ver">Ver quem são →</div>':'')+'</div>';}
 function pqTop(cnt){return cnt.itens.length?cnt.itens.slice().sort(function(a,b){return b[1]-a[1];})[0]:null;}
 function pqSoma(cnt,fn){return cnt.itens.reduce(function(a,i){return a+(fn(i[0])?i[1]:0);},0);}
+// Lista de quem respondeu (abre ao clicar num destaque ou barra)
+function pqAbrir(ci){
+  var c=PQ_CLK[ci];if(!c)return;
+  var lista=pqRows().filter(function(o){return pqPartes(c.campo,o[c.campo],c.multi).some(function(l){return c.labels.indexOf(l)>=0;});}).sort(function(a,b){return b.data-a.data;});
+  PQ_LISTA={c:c,lista:lista};PQ_BUSCA='';pqRenderLista();
+}
+function pqFechar(){var o=document.getElementById('pqOv');if(o)o.remove();PQ_LISTA=null;document.removeEventListener('keydown',pqTecla_);}
+function pqTecla_(e){if(e.key==='Escape')pqFechar();}
+function pqFmtD_(t){var d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
+function pqFone_(t){var d=String(t||'').replace(/\D/g,'');if(d.length<10)return '';if(d.length<=11)d='55'+d;return d;}
+function pqFiltrados_(){
+  if(!PQ_LISTA)return [];var q=PQ_BUSCA.toLowerCase().trim();if(!q)return PQ_LISTA.lista;
+  return PQ_LISTA.lista.filter(function(o){return [o.nome,o.email,o.telefone,o.imovel].join(' ').toLowerCase().indexOf(q)>=0;});
+}
+function pqRenderLista(){
+  if(!PQ_LISTA)return;var c=PQ_LISTA.c,tot=PQ_LISTA.lista.length;
+  var un={};PQ_LISTA.lista.forEach(function(o){un[o.email||o.nome]=1;});var nU=Object.keys(un).length;
+  var ov=document.getElementById('pqOv');
+  if(!ov){ov=document.createElement('div');ov.id='pqOv';ov.className='pq-ov';ov.onclick=function(e){if(e.target===ov)pqFechar();};document.body.appendChild(ov);document.addEventListener('keydown',pqTecla_);
+    ov.innerHTML='<div class="pq-md"><div class="pq-md-h" id="pqMdH"></div><div class="pq-md-b" id="pqMdB"></div></div>';}
+  var pub=PQ_F.pub==='aluno'?' · só alunos':PQ_F.pub==='nao'?' · só não alunos':'';
+  var semContato=!PQ_LISTA.lista.some(function(o){return o.nome||o.email;});
+  document.getElementById('pqMdH').innerHTML='<div style="display:flex;gap:10px;align-items:flex-start"><div><div class="pq-md-k">Pesquisa Arrematador Caixa'+pub+'</div><div class="pq-md-t">'+pqEsc(c.titulo)+'</div><div style="font:12px JetBrains Mono;color:var(--t3);margin-top:4px">'+fN(tot)+' formulários · '+fN(nU)+' pessoas</div></div><button class="pq-btn pq-x" onclick="pqFechar()" title="Fechar (Esc)">×</button></div>'
+    +(semContato?'<div class="pq-note" style="margin:10px 0 0;color:var(--gold)">Nome e contato aparecem depois que a nova versão do GAS for publicada.</div>':'')
+    +'<div class="pq-md-a"><input id="pqBusca" placeholder="Buscar nome, e-mail, telefone ou nº do imóvel" value="'+pqEsc(PQ_BUSCA)+'" oninput="PQ_BUSCA=this.value;pqRenderCorpo()"><button class="pq-btn" onclick="pqCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="pqCsv()">⬇️ Baixar planilha</button></div>';
+  pqRenderCorpo();
+}
+function pqRenderCorpo(){
+  var b=document.getElementById('pqMdB');if(!b||!PQ_LISTA)return;var c=PQ_LISTA.c,L=pqFiltrados_();
+  if(!L.length){b.innerHTML='<div class="pq-empty">Ninguém encontrado.</div>';return;}
+  var h='<table class="pq-tb"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Resposta</th><th>Aluno</th><th>Nº imóvel</th><th>Data</th></tr></thead><tbody>';
+  L.forEach(function(o){
+    var f=pqFone_(o.telefone);
+    h+='<tr><td><b>'+pqEsc(o.nome||'—')+'</b><div style="font-size:12px;color:var(--t3)">'+pqEsc(o.email||'')+'</div></td>'
+      +'<td>'+(f?'<a class="pq-wa" href="https://wa.me/'+f+'" target="_blank" rel="noopener">💬 '+pqEsc(o.telefone)+'</a>':'<span style="color:var(--t3)">sem telefone</span>')+'</td>'
+      +'<td>'+pqEsc(pqPartes(c.campo,o[c.campo],c.multi).join(', '))+'</td>'
+      +'<td>'+(o.aluno==='Sim'?'<span class="pq-tag">Aluno</span>':o.aluno==='Não'?'Não':'<span style="color:var(--t3)">—</span>')+'</td>'
+      +'<td style="font-family:JetBrains Mono;font-size:12px">'+pqEsc(o.imovel||'—')+'</td>'
+      +'<td style="font-family:JetBrains Mono;font-size:12px;white-space:nowrap">'+pqFmtD_(o.data)+'</td></tr>';
+  });
+  b.innerHTML=h+'</tbody></table>';
+}
+function pqCopiarEmails(){
+  var em=[],vis={};pqFiltrados_().forEach(function(o){if(o.email&&!vis[o.email]){vis[o.email]=1;em.push(o.email);}});
+  if(!em.length){alert('Nenhum e-mail nesta lista.');return;}
+  var t=em.join(', ');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(function(){alert(em.length+' e-mails copiados.');},function(){prompt('Copie os e-mails:',t);});else prompt('Copie os e-mails:',t);
+}
+function pqCsv(){
+  if(!PQ_LISTA)return;var c=PQ_LISTA.c;
+  var q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  var linhas=[['Nome','E-mail','Telefone','Resposta','Aluno da mentoria','Nº do imóvel','Data'].map(q).join(';')];
+  pqFiltrados_().forEach(function(o){linhas.push([o.nome,o.email,o.telefone,pqPartes(c.campo,o[c.campo],c.multi).join(', '),o.aluno,o.imovel,pqFmtD_(o.data)].map(q).join(';'));});
+  var blob=new Blob(['﻿'+linhas.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pesquisa-arrematador-'+c.titulo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').slice(0,50)+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+
 function renderPesqAC(){
   var el=document.getElementById('cPesqAC');if(!el)return;
   if(!PESQ_AC||!PESQ_AC.rows||!PESQ_AC.rows.length){el.innerHTML='<div class="pq-empty">Sem dados da pesquisa ainda.<br><span style="font-size:12px">A leitura da aba "Formulário Gui Arrematado caixa" entra com a nova versão do GAS.</span></div>';return;}
-  var R=pqRows(),N=R.length;
+  PQ_CLK=[];var R=pqRows(),N=R.length;
   var dtNova=null;PESQ_AC.rows.forEach(function(r){var o=r[PESQ_AC.campos.indexOf('objetivo')];var d=r[0];if(o&&(!dtNova||d<dtNova))dtNova=d;});
   var fmtD=function(t){var d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
   var C={};['aluno','modalidade','ocupado','desocupacao','contatoCond','contatoPref','inscMun','objetivo','qtdImoveis','curso','prox6m','patrimonio','maisSeguro','renda','conheceu'].forEach(function(k){C[k]=pqConta(R,k,false);});
@@ -1638,23 +1723,23 @@ function renderPesqAC(){
   h+='<span class="pq-lbl" style="margin-left:8px">Período</span><div class="pq-dates"><input type="date" id="pqDe" value="'+PQ_F.de+'" onchange="pqSetData()"><span style="color:var(--t3)">até</span><input type="date" id="pqAte" value="'+PQ_F.ate+'" onchange="pqSetData()"></div>';
   if(PQ_F.pub!=='todos'||PQ_F.de||PQ_F.ate)h+='<button class="filter-clear" onclick="pqLimpar()">Limpar</button>';
   h+='<span class="pq-n">'+fN(N)+' formulários</span></div>';
-  h+='<div class="pq-note" style="margin:10px 2px 0">Os filtros do topo (turma, funil) não se aplicam aqui: a pesquisa é preenchida por imóvel, por aluno e não aluno. "Aluno da mentoria" vale só para quem respondeu essa pergunta.</div>';
+  h+='<div class="pq-note" style="margin:10px 2px 0">Os filtros do topo (turma, funil) não se aplicam aqui: a pesquisa é preenchida por imóvel, por aluno e não aluno. "Aluno da mentoria" vale só para quem respondeu essa pergunta. <b style="color:var(--t2)">Clique em qualquer destaque ou barra para ver quem respondeu.</b></div>';
   if(!N){el.innerHTML=h+'<div class="pq-empty">Nenhum formulário no filtro atual.</div>';return;}
 
   // ===== Em 30 segundos =====
   h+='<div class="sec">⚡ Em 30 segundos</div><div class="pq-hero">';
   var p6=C.prox6m,p6s=pqSoma(p6,function(l){return /^sim/i.test(l);});
-  if(p6.n)h+=pqHero('var(--green)','Recompra',pqFmtP(pqPct(p6s,p6.n)),'pretende arrematar <b>outro imóvel nos próximos 6 meses</b>',fN(p6s)+' de '+fN(p6.n)+' respostas'+pqAm(p6.n));
+  if(p6.n)h+=pqHero('var(--green)','Recompra',pqFmtP(pqPct(p6s,p6.n)),'pretende arrematar <b>outro imóvel nos próximos 6 meses</b>',fN(p6s)+' de '+fN(p6.n)+' respostas'+pqAm(p6.n),pqReg('Pretendem arrematar outro imóvel em 6 meses','prox6m',p6.itens.map(function(i){return i[0];}).filter(function(l){return /^sim/i.test(l);})));
   var ti=pqTop(C.inseguro);
-  if(ti)h+=pqHero('var(--red)','Maior insegurança',pqFmtP(pqPct(ti[1],C.inseguro.n)),'cita <b>'+pqEsc(ti[0])+'</b>',fN(ti[1])+' de '+fN(C.inseguro.n)+' respostas · múltipla escolha'+pqAm(C.inseguro.n));
+  if(ti)h+=pqHero('var(--red)','Maior insegurança',pqFmtP(pqPct(ti[1],C.inseguro.n)),'cita <b>'+pqEsc(ti[0])+'</b>',fN(ti[1])+' de '+fN(C.inseguro.n)+' respostas · múltipla escolha'+pqAm(C.inseguro.n),pqReg('Inseguros com: '+ti[0],'inseguro',[ti[0]],true));
   var ds=C.desocupacao,dsA=pqSoma(ds,function(l){return l==='Arrematador Caixa assume';});
-  if(ds.n)h+=pqHero('var(--accent)','Desocupação',pqFmtP(pqPct(dsA,ds.n)),'quer que o <b>Arrematador Caixa assuma</b> a desocupação',fN(dsA)+' de '+fN(ds.n)+' com imóvel a desocupar');
+  if(ds.n)h+=pqHero('var(--accent)','Desocupação',pqFmtP(pqPct(dsA,ds.n)),'quer que o <b>Arrematador Caixa assuma</b> a desocupação',fN(dsA)+' de '+fN(ds.n)+' com imóvel a desocupar',pqReg('Querem que o Arrematador Caixa assuma a desocupação','desocupacao',['Arrematador Caixa assume']));
   var qi=C.qtdImoveis,q1=pqSoma(qi,function(l){return l==='Este é o primeiro';});
-  if(qi.n)h+=pqHero('var(--gold)','Experiência',pqFmtP(pqPct(q1,qi.n)),'está no <b>primeiro imóvel de leilão</b>',fN(q1)+' de '+fN(qi.n)+' respostas'+pqAm(qi.n));
+  if(qi.n)h+=pqHero('var(--gold)','Experiência',pqFmtP(pqPct(q1,qi.n)),'está no <b>primeiro imóvel de leilão</b>',fN(q1)+' de '+fN(qi.n)+' respostas'+pqAm(qi.n),pqReg('No primeiro imóvel de leilão','qtdImoveis',['Este é o primeiro']));
   var al=C.aluno,alS=pqSoma(al,function(l){return l==='Aluno da mentoria';});
-  if(al.n)h+=pqHero('var(--teal)','Mentoria',pqFmtP(pqPct(alS,al.n)),'é <b>aluno da mentoria</b> Arrematador',fN(alS)+' de '+fN(al.n)+' respostas');
+  if(al.n)h+=pqHero('var(--teal)','Mentoria',pqFmtP(pqPct(alS,al.n)),'é <b>aluno da mentoria</b> Arrematador',fN(alS)+' de '+fN(al.n)+' respostas',pqReg('Alunos da mentoria Arrematador','aluno',['Aluno da mentoria']));
   var tm=pqTop(C.modalidade);
-  if(tm)h+=pqHero('var(--sky)','Modalidade líder',pqFmtP(pqPct(tm[1],C.modalidade.n)),'arrematou em <b>'+pqEsc(tm[0])+'</b>',fN(tm[1])+' de '+fN(C.modalidade.n)+' respostas');
+  if(tm)h+=pqHero('var(--sky)','Modalidade líder',pqFmtP(pqPct(tm[1],C.modalidade.n)),'arrematou em <b>'+pqEsc(tm[0])+'</b>',fN(tm[1])+' de '+fN(C.modalidade.n)+' respostas',pqReg('Arremataram em '+tm[0],'modalidade',[tm[0]]));
   h+='</div>';
 
   // ===== Quem é o arrematador =====
