@@ -1666,7 +1666,7 @@ function pqFiltrados_(){
 }
 function pqRenderLista(){
   if(!PQ_LISTA)return;var c=PQ_LISTA.c,tot=PQ_LISTA.lista.length;
-  var un={};PQ_LISTA.lista.forEach(function(o){un[o.email||o.nome]=1;});var nU=Object.keys(un).length;
+  var un={};PQ_LISTA.lista.forEach(function(o,i){un[o.email||(o.nome||'').toLowerCase()||('#'+i)]=1;});var nU=Object.keys(un).length;
   var ov=document.getElementById('pqOv');
   if(!ov){ov=document.createElement('div');ov.id='pqOv';ov.className='pq-ov';ov.onclick=function(e){if(e.target===ov)pqFechar();};document.body.appendChild(ov);document.addEventListener('keydown',pqTecla_);
     ov.innerHTML='<div class="pq-md"><div class="pq-md-h" id="pqMdH"></div><div class="pq-md-b" id="pqMdB"></div></div>';}
