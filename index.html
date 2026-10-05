@@ -180,6 +180,11 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 .pq-note{font-size:12px;color:var(--t3);margin:-8px 0 16px;line-height:1.5}
 .pq-q{border-left:3px solid var(--accent);padding:8px 12px;margin-bottom:8px;font-size:13px;color:var(--t2);background:var(--track-bg);border-radius:0 10px 10px 0;font-style:italic}
 .pq-empty{color:var(--t3);padding:40px;text-align:center;font-size:14px}
+.pq-part{display:flex;gap:16px;align-items:center;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 14%,transparent),transparent 70%);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);border-radius:20px;padding:18px 22px;margin-top:28px}
+.pq-part-n{width:40px;height:40px;border-radius:12px;background:var(--c);color:#fff;font:800 20px 'JetBrains Mono';display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pq-part-t{font-size:20px;font-weight:800;letter-spacing:-.4px}
+.pq-part-s{font-size:13px;color:var(--t2);margin-top:3px}
+.pq-part-s b{color:var(--t1)}
 .pq-click{cursor:pointer;transition:transform .15s,border-color .15s}
 .pq-h.pq-click:hover{transform:translateY(-2px);border-color:var(--c)}
 .pq-r.pq-click{border-radius:8px;margin-left:-6px;margin-right:-6px;padding:2px 6px}
@@ -1713,8 +1718,7 @@ function renderPesqAC(){
   PQ_CLK=[];var R=pqRows(),N=R.length;
   var dtNova=null;PESQ_AC.rows.forEach(function(r){var o=r[PESQ_AC.campos.indexOf('objetivo')];var d=r[0];if(o&&(!dtNova||d<dtNova))dtNova=d;});
   var fmtD=function(t){var d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
-  var C={};['aluno','modalidade','ocupado','desocupacao','contatoCond','contatoPref','inscMun','objetivo','qtdImoveis','curso','prox6m','patrimonio','maisSeguro','renda','conheceu'].forEach(function(k){C[k]=pqConta(R,k,false);});
-  C.inseguro=pqConta(R,'inseguro',true);
+  var C={};['aluno','modalidade','ocupado','desocupacao','contatoCond','contatoPref','inscMun'].forEach(function(k){C[k]=pqConta(R,k,false);});
 
   var h='';
   // Barra de filtros da aba
@@ -1726,52 +1730,68 @@ function renderPesqAC(){
   h+='<div class="pq-note" style="margin:10px 2px 0">Os filtros do topo (turma, funil) não se aplicam aqui: a pesquisa é preenchida por imóvel, por aluno e não aluno. "Aluno da mentoria" vale só para quem respondeu essa pergunta. <b style="color:var(--t2)">Clique em qualquer destaque ou barra para ver quem respondeu.</b></div>';
   if(!N){el.innerHTML=h+'<div class="pq-empty">Nenhum formulário no filtro atual.</div>';return;}
 
-  // ===== Em 30 segundos =====
+  // ===== PARTE 1: PESQUISA NOVA (só quem respondeu as perguntas novas) =====
+  var RN=R.filter(function(o){return String(o.objetivo||'').trim();});
+  var CN={};['objetivo','qtdImoveis','curso','prox6m','patrimonio','maisSeguro','renda','conheceu'].forEach(function(k){CN[k]=pqConta(RN,k,false);});
+  CN.inseguro=pqConta(RN,'inseguro',true);
+  h+='<div class="pq-part" style="--c:var(--accent)"><div class="pq-part-n">1</div><div><div class="pq-part-t">Pesquisa nova do arrematador</div><div class="pq-part-s">10 perguntas incluídas no formulário'+(dtNova?' em '+fmtD(dtNova):'')+' · <b>'+fN(RN.length)+' respostas</b>'+(RN.length<30?' · amostra pequena, ler como tendência':'')+'</div></div></div>';
+  if(!RN.length){h+='<div class="pq-empty">Nenhuma resposta da pesquisa nova no filtro atual.</div>';}
+  else{
+    h+='<div class="sec">⚡ Em 30 segundos</div><div class="pq-hero">';
+    var p6=CN.prox6m,p6s=pqSoma(p6,function(l){return /^sim/i.test(l);});
+    if(p6.n)h+=pqHero('var(--green)','Recompra',pqFmtP(pqPct(p6s,p6.n)),'pretende arrematar <b>outro imóvel nos próximos 6 meses</b>',fN(p6s)+' de '+fN(p6.n)+' respostas',pqReg('Pretendem arrematar outro imóvel em 6 meses','prox6m',p6.itens.map(function(i){return i[0];}).filter(function(l){return /^sim/i.test(l);})));
+    var ti=pqTop(CN.inseguro);
+    if(ti)h+=pqHero('var(--red)','Maior insegurança',pqFmtP(pqPct(ti[1],CN.inseguro.n)),'cita <b>'+pqEsc(ti[0])+'</b>',fN(ti[1])+' de '+fN(CN.inseguro.n)+' respostas · múltipla escolha',pqReg('Inseguros com: '+ti[0],'inseguro',[ti[0]],true));
+    var ts=pqTop(CN.maisSeguro);
+    if(ts)h+=pqHero('var(--teal)','O que daria segurança',pqFmtP(pqPct(ts[1],CN.maisSeguro.n)),'quer <b>'+pqEsc(ts[0].charAt(0).toLowerCase()+ts[0].slice(1))+'</b>',fN(ts[1])+' de '+fN(CN.maisSeguro.n)+' respostas',pqReg('Mais seguros com: '+ts[0],'maisSeguro',[ts[0]]));
+    var qi=CN.qtdImoveis,q1=pqSoma(qi,function(l){return l==='Este é o primeiro';});
+    if(qi.n)h+=pqHero('var(--gold)','Experiência',pqFmtP(pqPct(q1,qi.n)),'está no <b>primeiro imóvel de leilão</b>',fN(q1)+' de '+fN(qi.n)+' respostas',pqReg('No primeiro imóvel de leilão','qtdImoveis',['Este é o primeiro']));
+    var to=pqTop(CN.objetivo);
+    if(to)h+=pqHero('var(--accent)','Objetivo principal',pqFmtP(pqPct(to[1],CN.objetivo.n)),'quer <b>'+pqEsc(to[0].toLowerCase())+'</b> o imóvel',fN(to[1])+' de '+fN(CN.objetivo.n)+' respostas',pqReg('Objetivo: '+to[0],'objetivo',[to[0]]));
+    var tc=pqTop(CN.conheceu);
+    if(tc)h+=pqHero('var(--pink)','Principal canal',pqFmtP(pqPct(tc[1],CN.conheceu.n)),'conheceu por <b>'+pqEsc(tc[0])+'</b>',fN(tc[1])+' de '+fN(CN.conheceu.n)+' respostas',pqReg('Conheceram por: '+tc[0],'conheceu',[tc[0]]));
+    h+='</div>';
+
+    h+='<div class="sec">👤 Quem é o arrematador</div><div class="pq-grid g3x">';
+    h+=pqCard('Qual é o objetivo com o imóvel?',CN.objetivo,'var(--accent)');
+    h+=pqCard('Quantos imóveis já arrematou (contando com este)?',CN.qtdImoveis,'var(--gold)');
+    h+=pqCard('Já fez algum curso sobre leilão?',CN.curso,'var(--teal)');
+    h+=pqCard('Renda mensal',CN.renda,'var(--sky)');
+    h+=pqCard('Quanto do patrimônio pretende investir em leilão',CN.patrimonio,'var(--green)');
+    h+=pqCard('Como conheceu o Arrematador Caixa?',CN.conheceu,'var(--pink)');
+    h+='</div>';
+
+    h+='<div class="sec">🛡️ Inseguranças e o que traria segurança</div><div class="pq-grid">';
+    h+=pqCard('O que deixa inseguro com esse imóvel?',CN.inseguro,'var(--red)','Múltipla escolha: o % é sobre quem respondeu, a soma passa de 100%.');
+    h+=pqCard('O que deixaria mais seguro nas próximas arrematações?',CN.maisSeguro,'var(--green)');
+    h+='</div>';
+
+    h+='<div class="sec">🔁 Próximas arrematações e escolha do Arrematador Caixa</div><div class="pq-grid">';
+    h+=pqCard('Pretende arrematar outro imóvel nos próximos 6 meses?',CN.prox6m,'var(--green)');
+    var por=RN.filter(function(o){return String(o.porque||'').trim().length>2;}).sort(function(a,b){return b.data-a.data;});
+    h+='<div class="pq-c"><div class="pq-c-h"><div class="pq-c-q">Por que escolheu o Arrematador Caixa? <span style="font-weight:400;color:var(--t3);font-size:12px">(opcional)</span></div><span class="pq-c-n">'+fN(por.length)+' relatos</span></div>';
+    if(!por.length)h+='<div class="pq-empty" style="padding:16px">Sem relatos no filtro atual.</div>';
+    por.slice(0,8).forEach(function(o){h+='<div class="pq-q">“'+pqEsc(o.porque)+'”<div style="font-style:normal;font-size:11px;color:var(--t3);margin-top:4px">'+pqEsc(o.nome||'')+' · '+fmtD(o.data)+(o.aluno==='Sim'?' · aluno da mentoria':'')+'</div></div>';});
+    if(por.length>8)h+='<div style="font-size:11px;color:var(--t3)">+'+(por.length-8)+' relatos mais antigos</div>';
+    h+='</div></div>';
+  }
+
+  // ===== PARTE 2: FORMULÁRIO DE ARREMATAÇÃO (base completa) =====
+  h+='<div class="pq-part" style="--c:var(--sky);margin-top:56px"><div class="pq-part-n">2</div><div><div class="pq-part-t">Formulário de arrematação</div><div class="pq-part-s">Perguntas de operação do imóvel, respondidas desde o início · <b>'+fN(N)+' formulários</b></div></div></div>';
   h+='<div class="sec">⚡ Em 30 segundos</div><div class="pq-hero">';
-  var p6=C.prox6m,p6s=pqSoma(p6,function(l){return /^sim/i.test(l);});
-  if(p6.n)h+=pqHero('var(--green)','Recompra',pqFmtP(pqPct(p6s,p6.n)),'pretende arrematar <b>outro imóvel nos próximos 6 meses</b>',fN(p6s)+' de '+fN(p6.n)+' respostas'+pqAm(p6.n),pqReg('Pretendem arrematar outro imóvel em 6 meses','prox6m',p6.itens.map(function(i){return i[0];}).filter(function(l){return /^sim/i.test(l);})));
-  var ti=pqTop(C.inseguro);
-  if(ti)h+=pqHero('var(--red)','Maior insegurança',pqFmtP(pqPct(ti[1],C.inseguro.n)),'cita <b>'+pqEsc(ti[0])+'</b>',fN(ti[1])+' de '+fN(C.inseguro.n)+' respostas · múltipla escolha'+pqAm(C.inseguro.n),pqReg('Inseguros com: '+ti[0],'inseguro',[ti[0]],true));
   var ds=C.desocupacao,dsA=pqSoma(ds,function(l){return l==='Arrematador Caixa assume';});
   if(ds.n)h+=pqHero('var(--accent)','Desocupação',pqFmtP(pqPct(dsA,ds.n)),'quer que o <b>Arrematador Caixa assuma</b> a desocupação',fN(dsA)+' de '+fN(ds.n)+' com imóvel a desocupar',pqReg('Querem que o Arrematador Caixa assuma a desocupação','desocupacao',['Arrematador Caixa assume']));
-  var qi=C.qtdImoveis,q1=pqSoma(qi,function(l){return l==='Este é o primeiro';});
-  if(qi.n)h+=pqHero('var(--gold)','Experiência',pqFmtP(pqPct(q1,qi.n)),'está no <b>primeiro imóvel de leilão</b>',fN(q1)+' de '+fN(qi.n)+' respostas'+pqAm(qi.n),pqReg('No primeiro imóvel de leilão','qtdImoveis',['Este é o primeiro']));
   var al=C.aluno,alS=pqSoma(al,function(l){return l==='Aluno da mentoria';});
-  if(al.n)h+=pqHero('var(--teal)','Mentoria',pqFmtP(pqPct(alS,al.n)),'é <b>aluno da mentoria</b> Arrematador',fN(alS)+' de '+fN(al.n)+' respostas',pqReg('Alunos da mentoria Arrematador','aluno',['Aluno da mentoria']));
+  if(al.n)h+=pqHero('var(--pink)','Mentoria',pqFmtP(pqPct(alS,al.n)),'é <b>aluno da mentoria</b> Arrematador',fN(alS)+' de '+fN(al.n)+' respostas',pqReg('Alunos da mentoria Arrematador','aluno',['Aluno da mentoria']));
   var tm=pqTop(C.modalidade);
   if(tm)h+=pqHero('var(--sky)','Modalidade líder',pqFmtP(pqPct(tm[1],C.modalidade.n)),'arrematou em <b>'+pqEsc(tm[0])+'</b>',fN(tm[1])+' de '+fN(C.modalidade.n)+' respostas',pqReg('Arremataram em '+tm[0],'modalidade',[tm[0]]));
+  var oc=C.ocupado,ocS=pqSoma(oc,function(l){return l==='Sim, está ocupado';});
+  if(oc.n)h+=pqHero('var(--orange)','Imóvel ocupado',pqFmtP(pqPct(ocS,oc.n)),'sabe que o <b>imóvel está ocupado</b>',fN(ocS)+' de '+fN(oc.n)+' respostas',pqReg('Sabem que o imóvel está ocupado','ocupado',['Sim, está ocupado']));
+  var cc=C.contatoCond,ccN=pqSoma(cc,function(l){return l==='Não';});
+  if(cc.n)h+=pqHero('var(--teal)','Condomínio',pqFmtP(pqPct(ccN,cc.n)),'<b>não tem contato</b> do condomínio',fN(ccN)+' de '+fN(cc.n)+' respostas',pqReg('Sem contato do condomínio','contatoCond',['Não']));
+  var im=C.inscMun,imN=pqSoma(im,function(l){return l==='Não';});
+  if(im.n)h+=pqHero('var(--gold)','Inscrição municipal',pqFmtP(pqPct(imN,im.n)),'<b>não tem a inscrição municipal</b> do imóvel',fN(imN)+' de '+fN(im.n)+' respostas',pqReg('Sem inscrição municipal','inscMun',['Não']));
   h+='</div>';
-
-  // ===== Quem é o arrematador =====
-  var nNova=C.objetivo.n;
-  h+='<div class="sec">👤 Quem é o arrematador</div>';
-  if(dtNova)h+='<div class="pq-note">Perguntas incluídas no formulário em '+fmtD(dtNova)+'. Até agora, '+fN(nNova)+' respostas no filtro. Abaixo de 30 respostas, ler como tendência.</div>';
-  h+='<div class="pq-grid g3x">';
-  h+=pqCard('Qual é o objetivo com o imóvel?',C.objetivo,'var(--accent)');
-  h+=pqCard('Quantos imóveis já arrematou (contando com este)?',C.qtdImoveis,'var(--gold)');
-  h+=pqCard('Já fez algum curso sobre leilão?',C.curso,'var(--teal)');
-  h+=pqCard('Renda mensal',C.renda,'var(--sky)');
-  h+=pqCard('Quanto do patrimônio pretende investir em leilão',C.patrimonio,'var(--green)');
-  h+=pqCard('Como conheceu o Arrematador Caixa?',C.conheceu,'var(--pink)');
-  h+='</div>';
-
-  // ===== Inseguranças =====
-  h+='<div class="sec">🛡️ Inseguranças e o que traria segurança</div><div class="pq-grid">';
-  h+=pqCard('O que deixa inseguro com esse imóvel?',C.inseguro,'var(--red)','Múltipla escolha: o % é sobre quem respondeu, a soma passa de 100%.');
-  h+=pqCard('O que deixaria mais seguro nas próximas arrematações?',C.maisSeguro,'var(--green)');
-  h+='</div>';
-
-  // ===== Próximas arrematações =====
-  h+='<div class="sec">🔁 Próximas arrematações</div><div class="pq-grid">';
-  h+=pqCard('Pretende arrematar outro imóvel nos próximos 6 meses?',C.prox6m,'var(--green)');
-  var por=R.filter(function(o){return String(o.porque||'').trim().length>2;}).sort(function(a,b){return b.data-a.data;});
-  h+='<div class="pq-c"><div class="pq-c-h"><div class="pq-c-q">Por que escolheu o Arrematador Caixa? <span style="font-weight:400;color:var(--t3);font-size:12px">(opcional)</span></div><span class="pq-c-n">'+fN(por.length)+' relatos</span></div>';
-  if(!por.length)h+='<div class="pq-empty" style="padding:16px">Sem relatos no filtro atual.</div>';
-  por.slice(0,8).forEach(function(o){h+='<div class="pq-q">“'+pqEsc(o.porque)+'”<div style="font-style:normal;font-size:11px;color:var(--t3);margin-top:4px">'+fmtD(o.data)+(o.aluno==='Sim'?' · aluno da mentoria':'')+'</div></div>';});
-  if(por.length>8)h+='<div style="font-size:11px;color:var(--t3)">+'+(por.length-8)+' relatos mais antigos</div>';
-  h+='</div></div>';
-
-  // ===== Operação do imóvel =====
   h+='<div class="sec">🏠 Situação do imóvel e operação</div><div class="pq-grid g3x">';
   h+=pqCard('Modalidade do leilão',C.modalidade,'var(--sky)');
   h+=pqCard('Sabe se o imóvel está ocupado?',C.ocupado,'var(--orange)');
@@ -1779,6 +1799,7 @@ function renderPesqAC(){
   h+=pqCard('Possui contato do condomínio?',C.contatoCond,'var(--teal)');
   h+=pqCard('Possui contato na prefeitura?',C.contatoPref,'var(--gold)');
   h+=pqCard('Possui inscrição municipal do imóvel?',C.inscMun,'var(--green)');
+  h+='</div><div class="pq-grid" style="margin-top:16px">';
   h+=pqCard('É aluno da mentoria Arrematador?',C.aluno,'var(--pink)');
   h+='</div>';
   el.innerHTML=h;
