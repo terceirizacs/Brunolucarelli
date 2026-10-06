@@ -403,20 +403,61 @@ function doLogin(){const v=document.getElementById('pwdInput').value;if(v===PWD)
 
 const API_URL='https://script.google.com/macros/s/AKfycby9G0502p4MgiAdLN1KlJiBxZTzJk0be-Z7SkichhUOehJMEpyEVKYXW4ZKNvvmzKaC/exec';
 
-async function loadData(){
+// Cache local (IndexedDB): abre na hora com os dados da ultima visita e atualiza em segundo plano.
+const IDB_NOME='brunolucarelli_dash_db',IDB_TTL=24*3600*1000;
+function idbAbrir_(){return new Promise((ok,er)=>{try{const q=indexedDB.open(IDB_NOME,1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);}catch(e){er(e);}});}
+async function idbGet_(k){try{const db=await idbAbrir_();return await new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null);});}catch(e){return null;}}
+async function idbPut_(k,v){try{const db=await idbAbrir_();await new Promise(ok=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=ok;t.onerror=ok;});}catch(e){}}
+async function fetchGas_(){
+  const ac=typeof AbortController!=='undefined'?new AbortController():null;
+  const to=ac?setTimeout(()=>ac.abort(),120000):null;
   try{
-    const r=await fetch(API_URL);
-    const D=await r.json();
-    if(D.atendimento&&typeof mergeAtendimentoFromServer==='function'){try{mergeAtendimentoFromServer(D.atendimento);}catch(_e){console.warn('merge atend',_e);}}
+    const r=await fetch(API_URL,ac?{signal:ac.signal}:{});
+    const txt=await r.text();
+    if(txt.trim().charAt(0)!=='{')throw new Error('Google devolveu uma página em vez dos dados (HTTP '+r.status+')');
+    const D=JSON.parse(txt);
     if(D.error)throw new Error(D.error);
-    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
-    const badge=document.getElementById('badgeUpdated');
-    if(badge){
-      const dtUpd=D.todayMs?new Date(D.todayMs):null;
-      const fmtUpd=dtUpd?String(dtUpd.getDate()).padStart(2,'0')+'/'+String(dtUpd.getMonth()+1).padStart(2,'0')+'/'+dtUpd.getFullYear()+' '+String(dtUpd.getHours()).padStart(2,'0')+':'+String(dtUpd.getMinutes()).padStart(2,'0'):'—';
-      badge.textContent='🟢 Atualizado '+fmtUpd;
+    return D;
+  }finally{if(to)clearTimeout(to);}
+}
+let _loadEmAndamento=false,_dadosNaTela=false;
+async function loadData(){
+  if(_loadEmAndamento)return;
+  _loadEmAndamento=true;
+  const badge=document.getElementById('badgeUpdated');
+  try{
+    const C=await idbGet_('dash');
+    if(C&&C.D&&(Date.now()-C.t)<IDB_TTL){
+      try{aplicarDados_(C.D);if(badge)badge.textContent='🟡 Atualizando…';}catch(e){console.warn('cache local inválido',e);_dadosNaTela=false;}
     }
-    
+    try{
+      const D=await fetchGas_();
+      if(!(_dadosNaTela&&C&&C.D&&C.D.todayMs===D.todayMs))aplicarDados_(D);
+      else marcarAtualizado_(D);
+      idbPut_('dash',{t:Date.now(),D:D});
+    }catch(e){
+      if(!_dadosNaTela)throw e;
+      if(badge){badge.textContent='🟠 Dados da última visita · clique para tentar de novo';badge.style.cursor='pointer';badge.onclick=()=>{badge.onclick=null;badge.style.cursor='';loadData();};}
+      console.warn('atualização falhou',e);
+    }
+  }catch(e){
+    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">⚠️</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
+  }finally{_loadEmAndamento=false;}
+}
+function marcarAtualizado_(D){
+  const badge=document.getElementById('badgeUpdated');
+  if(badge){
+    const dtUpd=D.todayMs?new Date(D.todayMs):null;
+    const fmtUpd=dtUpd?String(dtUpd.getDate()).padStart(2,'0')+'/'+String(dtUpd.getMonth()+1).padStart(2,'0')+'/'+dtUpd.getFullYear()+' '+String(dtUpd.getHours()).padStart(2,'0')+':'+String(dtUpd.getMinutes()).padStart(2,'0'):'—';
+    badge.textContent='🟢 Atualizado '+fmtUpd;
+  }
+}
+function aplicarDados_(D){
+  {
+    if(D.atendimento&&typeof mergeAtendimentoFromServer==='function'){try{mergeAtendimentoFromServer(D.atendimento);}catch(_e){console.warn('merge atend',_e);}}
+    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
+    marcarAtualizado_(D);
+
     // Build sets de arrematadores + mapa turma (da aba Controle de arrematação) — mesmos filtros do getFA
     arrNomesSet=new Set();
     arrEmailsSet=new Set();
@@ -437,6 +478,7 @@ async function loadData(){
     });
 
     // Build filters — usar TURMA EFETIVA (arrematação se arrematou, senão planilha cs)
+    const _selAnt={};['fTurma','fTipoAcesso','fFunil','fStatus'].forEach(id=>{_selAnt[id]=getMS(id);});
     const tSet=new Set(),aSet=new Set(),fSet=new Set();
     CS.forEach(r=>{
       const nt=effTurma(r);
@@ -451,11 +493,13 @@ async function loadData(){
     buildStatusMaps();
     if(Object.keys(STATUS_EMAIL).length||Object.keys(STATUS_NOME).length){buildMS('fStatus',['Ativo','Inativo']);}
 
-    renderAll(CS);
+    // Re-aplicação (cache local → dado vivo): mantém os filtros que a pessoa já marcou
+    let _temSel=false;
+    Object.keys(_selAnt).forEach(id=>{const w=document.getElementById(id);if(!w||!_selAnt[id].length)return;w.querySelectorAll('.ms-option').forEach(o=>{if(_selAnt[id].includes(o.dataset.val)){o.classList.add('selected');_temSel=true;}});updTrig(w);});
+    if(_temSel||document.getElementById('fDe').value||document.getElementById('fAte').value)applyFilters();else renderAll(CS);
+    _dadosNaTela=true;
     document.getElementById('loadingOverlay').style.display='none';
     document.getElementById('mainWrap').style.display='block';
-  }catch(e){
-    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">⚠️</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
   }
 }
 
