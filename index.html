@@ -408,17 +408,40 @@ const IDB_NOME='brunolucarelli_dash_db',IDB_TTL=24*3600*1000;
 function idbAbrir_(){return new Promise((ok,er)=>{try{const q=indexedDB.open(IDB_NOME,1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);}catch(e){er(e);}});}
 async function idbGet_(k){try{const db=await idbAbrir_();return await new Promise(ok=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null);});}catch(e){return null;}}
 async function idbPut_(k,v){try{const db=await idbAbrir_();await new Promise(ok=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=ok;t.onerror=ok;});}catch(e){}}
-async function fetchGas_(){
+async function gasTexto_(url,ms){
   const ac=typeof AbortController!=='undefined'?new AbortController():null;
-  const to=ac?setTimeout(()=>ac.abort(),120000):null;
-  try{
-    const r=await fetch(API_URL,ac?{signal:ac.signal}:{});
-    const txt=await r.text();
-    if(txt.trim().charAt(0)!=='{')throw new Error('Google devolveu uma página em vez dos dados (HTTP '+r.status+')');
-    const D=JSON.parse(txt);
-    if(D.error)throw new Error(D.error);
-    return D;
-  }finally{if(to)clearTimeout(to);}
+  const to=ac?setTimeout(()=>ac.abort(),ms||90000):null;
+  try{const r=await fetch(url,ac?{signal:ac.signal}:{});return await r.text();}
+  finally{if(to)clearTimeout(to);}
+}
+function jsonOuNull_(t){try{const s=(t||'').trim();return s.charAt(0)==='{'?JSON.parse(s):null;}catch(e){return null;}}
+const gasUrl_=q=>API_URL+(API_URL.includes('?')?'&':'?')+q;
+// Em partes (~900 KB cada): o Google às vezes devolve 404 no pacote inteiro de vários MB
+async function baixarPartes_(n){
+  const txts=await Promise.all(Array.from({length:n},async(_,p)=>{
+    for(let k=0;k<3;k++){const t=await gasTexto_(gasUrl_('part='+p)).catch(()=>null);if(t&&!(t.trim().charAt(0)==='{'&&/"error"/.test(t.slice(0,80))))return t;}
+    throw new Error('parte '+p+' falhou');
+  }));
+  return jsonOuNull_(txts.join(''));
+}
+async function fetchGasPartes_(){
+  const meta=jsonOuNull_(await gasTexto_(gasUrl_('meta=1')));
+  if(meta&&meta.cs)return meta;                   // script antigo respondeu o pacote inteiro
+  if(!meta||meta.error||!meta.partes)return null;
+  let d=await baixarPartes_(meta.partes).catch(()=>null);
+  if(!d){ // cache pode ter sido regravado no meio do download (partes de versões diferentes): tenta 1x de novo
+    const m2=jsonOuNull_(await gasTexto_(gasUrl_('meta=1')));
+    if(m2&&m2.partes)d=await baixarPartes_(m2.partes).catch(()=>null);
+  }
+  return d;
+}
+async function fetchGas_(){
+  let D=null;
+  try{D=await fetchGasPartes_();}catch(e){console.warn('GAS partes falhou',e);}
+  for(let k=0;!D&&k<2;k++){try{D=jsonOuNull_(await gasTexto_(API_URL,120000));}catch(e){console.warn('GAS inteiro falhou',e);}}
+  if(!D)throw new Error('O Google não devolveu os dados. Tente de novo em instantes.');
+  if(D.error)throw new Error(D.error);
+  return D;
 }
 let _loadEmAndamento=false,_dadosNaTela=false;
 async function loadData(){
