@@ -744,6 +744,9 @@ function renderAll(cs){
   fOrdV.forEach((f,i)=>{const q=fdV[i],pc=total?q/total*100:0;h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBgV[i]+';color:'+fColV[i]+'">'+f+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+fP(pc)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fColV[i]+'"></div></div></div>';});
   h+='</div></div>';
 
+  // Guia Leilão — adesão (base = planilha cs no filtro atual)
+  h+=glBloco(cs);
+
   // Comparativo por Turma — T12+ (todas que existem na base, dinâmico) com data (mes/ano) da turma
   const _td=computeTurmaData(CS);
   const _compT=Object.keys(turmaC).filter(t=>{const n=parseInt(t.replace('T',''));return n>=12&&turmaC[t]>0;}).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
@@ -1777,6 +1780,73 @@ function pqCsv(){
   pqFiltrados_().forEach(function(o){linhas.push([o.nome,o.email,o.telefone,pqPartes(c.campo,o[c.campo],c.multi).join(', '),o.aluno,o.imovel,pqFmtD_(o.data)].map(q).join(';'));});
   var blob=new Blob(['﻿'+linhas.join('\n')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pesquisa-arrematador-'+c.titulo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').slice(0,50)+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+
+// ===== GUIA LEILÃO — adesão por turma (fonte: coluna "Guia leilão" da dataorigin, cruzada por e-mail no GAS) =====
+let GL_BASE=[],GL_LISTA=null,GL_BUSCA='';
+var GL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos o Guia Leilão</div><div style="font-size:11px;line-height:1.7;text-align:left">Base: só quem está na planilha cs (dataorigin), respeitando os filtros do topo.<br><b>No Guia</b>: coluna <b>Guia leilão</b> da dataorigin preenchida, casando pelo e-mail.<br>Turma: a mesma turma usada no resto do painel.</div>';
+function glTurma_(r){return effTurma(r)||'Sem turma';}
+function glBloco(cs){
+  GL_BASE=cs;
+  let h='<div class="sec">🧭 Guia Leilão · Adesão'+helpQ('GL_DEF')+'</div>';
+  if(!cs.some(r=>r.guia!==undefined))return h+'<div class="card"><div class="pq-empty">A marcação do Guia Leilão entra com a nova versão do script (GAS).</div></div>';
+  const tot=cs.length,noG=cs.filter(r=>r.guia).length,fora=tot-noG,pc=tot?noG/tot*100:0;
+  h+='<div class="g4" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px">';
+  h+='<div class="card pq-click" style="cursor:pointer" onclick="glAbrir(\'sim\')"><h3>No Guia Leilão</h3><div style="font:700 32px JetBrains Mono;color:var(--green);margin:6px 0">'+fN(noG)+'</div><div class="d">'+fP(pc)+' da base · ver quem são →</div></div>';
+  h+='<div class="card pq-click" style="cursor:pointer" onclick="glAbrir(\'nao\')"><h3>Fora do Guia</h3><div style="font:700 32px JetBrains Mono;color:var(--red);margin:6px 0">'+fN(fora)+'</div><div class="d">'+fP(100-pc)+' da base · ver quem são →</div></div>';
+  h+='<div class="card"><h3>Base considerada</h3><div style="font:700 32px JetBrains Mono;color:var(--t1);margin:6px 0">'+fN(tot)+'</div><div class="d">alunos da planilha cs no filtro atual</div></div>';
+  h+='</div>';
+  const T={};cs.forEach(r=>{const t=glTurma_(r);if(!T[t])T[t]={n:0,g:0};T[t].n++;if(r.guia)T[t].g++;});
+  const ord=Object.keys(T).sort((a,b)=>{const na=a==='Sem turma'?999:parseInt(a.replace('T','')),nb=b==='Sem turma'?999:parseInt(b.replace('T',''));return na-nb;});
+  const _td=computeTurmaData(CS);
+  h+='<div class="card"><h3>% no Guia Leilão por turma</h3><div class="d">Clique numa turma para ver quem está e quem não está</div>';
+  ord.forEach(t=>{const x=T[t],p=x.n?x.g/x.n*100:0;const lbl=t+(_td[t]?' · '+_td[t]:'');
+    h+='<div class="ft-row" style="cursor:pointer" onclick="glAbrir(\'todos\',\''+t+'\')" title="Ver alunos da '+t+'"><span class="ft-tag" style="background:rgba(52,211,153,.12);color:var(--green);width:150px;flex:none;box-sizing:border-box">'+lbl+'</span><span class="ft-qty">'+fN(x.g)+' / '+fN(x.n)+'</span><span class="ft-pct">'+fP(p)+'</span><div class="ft-track"><div class="ft-fill" style="width:'+p.toFixed(1)+'%;background:var(--green)"></div></div></div>';});
+  return h+'</div>';
+}
+function glAbrir(modo,turma){GL_LISTA={modo:modo,turma:turma||''};GL_BUSCA='';glRender();}
+function glFechar(){const o=document.getElementById('glOv');if(o)o.remove();GL_LISTA=null;document.removeEventListener('keydown',glTecla_);}
+function glTecla_(e){if(e.key==='Escape')glFechar();}
+function glFiltrados_(){
+  if(!GL_LISTA)return [];const q=GL_BUSCA.toLowerCase().trim();
+  return GL_BASE.filter(r=>(!GL_LISTA.turma||glTurma_(r)===GL_LISTA.turma)&&(GL_LISTA.modo==='todos'||(GL_LISTA.modo==='sim')===!!r.guia)&&(!q||[r.nome,r.email,r.telefone].join(' ').toLowerCase().includes(q)))
+    .sort((a,b)=>(b.guia?1:0)-(a.guia?1:0)||String(a.nome).localeCompare(String(b.nome)));
+}
+function glRender(){
+  if(!GL_LISTA)return;
+  let ov=document.getElementById('glOv');
+  if(!ov){ov=document.createElement('div');ov.id='glOv';ov.className='pq-ov';ov.onclick=e=>{if(e.target===ov)glFechar();};document.body.appendChild(ov);document.addEventListener('keydown',glTecla_);
+    ov.innerHTML='<div class="pq-md"><div class="pq-md-h" id="glMdH"></div><div class="pq-md-b" id="glMdB"></div></div>';}
+  const base=GL_BASE.filter(r=>!GL_LISTA.turma||glTurma_(r)===GL_LISTA.turma),nS=base.filter(r=>r.guia).length,nN=base.length-nS;
+  const tab=(m,t)=>'<button class="pq-btn" style="'+(GL_LISTA.modo===m?'background:var(--accent);color:#fff;border-color:var(--accent)':'')+'" onclick="GL_LISTA.modo=\''+m+'\';glRender()">'+t+'</button>';
+  document.getElementById('glMdH').innerHTML='<div style="display:flex;gap:10px;align-items:flex-start"><div><div class="pq-md-k">Guia Leilão'+(GL_LISTA.turma?' · '+pqEsc(GL_LISTA.turma):'')+'</div><div class="pq-md-t">'+fN(nS)+' de '+fN(base.length)+' no Guia ('+fP(base.length?nS/base.length*100:0)+')</div></div><button class="pq-btn pq-x" onclick="glFechar()" title="Fechar (Esc)">×</button></div>'
+    +'<div class="pq-md-a" style="flex-wrap:wrap">'+tab('sim','✅ No Guia ('+fN(nS)+')')+tab('nao','❌ Fora ('+fN(nN)+')')+tab('todos','Todos ('+fN(base.length)+')')+'</div>'
+    +'<div class="pq-md-a"><input id="glBusca" placeholder="Buscar nome, e-mail ou telefone" value="'+pqEsc(GL_BUSCA)+'" oninput="GL_BUSCA=this.value;glCorpo()"><button class="pq-btn" onclick="glCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="glCsv()">⬇️ Baixar planilha</button></div>';
+  glCorpo();
+}
+function glCorpo(){
+  const b=document.getElementById('glMdB');if(!b||!GL_LISTA)return;const L=glFiltrados_();
+  if(!L.length){b.innerHTML='<div class="pq-empty">Ninguém encontrado.</div>';return;}
+  let h='<table class="pq-tb"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Turma</th><th>Jornada</th><th>Guia</th></tr></thead><tbody>';
+  L.forEach(r=>{const f=pqFone_(r.telefone);
+    h+='<tr><td><b>'+pqEsc(r.nome||'—')+'</b><div style="font-size:12px;color:var(--t3)">'+pqEsc(r.email||'')+'</div></td>'
+      +'<td>'+(f?'<a class="pq-wa" href="https://wa.me/'+f+'" target="_blank" rel="noopener">💬 '+pqEsc(r.telefone)+'</a>':'<span style="color:var(--t3)">sem telefone</span>')+'</td>'
+      +'<td style="font-family:JetBrains Mono;font-size:12px">'+pqEsc(glTurma_(r))+'</td><td>'+pqEsc(r.funilCalc||'—')+'</td>'
+      +'<td>'+(r.guia?'<span class="pq-tag">No Guia</span>':'<span style="color:var(--t3)">Fora</span>')+'</td></tr>';});
+  b.innerHTML=h+'</tbody></table>';
+}
+function glCopiarEmails(){
+  const em=[...new Set(glFiltrados_().map(r=>r.email).filter(Boolean))];
+  if(!em.length){alert('Nenhum e-mail nesta lista.');return;}
+  const t=em.join(', ');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>alert(em.length+' e-mails copiados.'),()=>prompt('Copie os e-mails:',t));else prompt('Copie os e-mails:',t);
+}
+function glCsv(){
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const linhas=[['Nome','E-mail','Telefone','Turma','Jornada','Guia Leilão'].map(q).join(';')];
+  glFiltrados_().forEach(r=>linhas.push([r.nome,r.email,r.telefone,glTurma_(r),r.funilCalc,r.guia?'Sim':'Não'].map(q).join(';')));
+  const blob=new Blob(['﻿'+linhas.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='guia-leilao-'+(GL_LISTA.turma||'todas').toLowerCase()+'-'+GL_LISTA.modo+'.csv';document.body.appendChild(a);a.click();a.remove();
 }
 
 function renderPesqAC(){
