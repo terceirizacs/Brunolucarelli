@@ -344,7 +344,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
   </div>
 </div>
 
-<div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div><div class="loading-text">Carregando dados da planilha...</div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div><div class="loading-text">Carregando dados...</div></div>
 <div id="mainWrap" style="display:none">
 <div class="header">
 <div class="header-left">
@@ -443,28 +443,38 @@ async function fetchGas_(){
   if(D.error)throw new Error(D.error);
   return D;
 }
-let _loadEmAndamento=false,_dadosNaTela=false;
+let _loadEmAndamento=false,_dadosNaTela=false,_dadosAtuais=null;
+// Falha ao buscar = novas tentativas silenciosas (30 s, 1 min, 2 min); o selo continua mostrando a data dos dados na tela.
+const RETRY_DELAYS_MS=[30000,60000,120000];
+let _retryN=0,_retryTimer=null;
+function agendarNovaTentativa_(){
+  if(_retryTimer||_retryN>=RETRY_DELAYS_MS.length)return;
+  _retryTimer=setTimeout(()=>{_retryTimer=null;_retryN++;loadData();},RETRY_DELAYS_MS[_retryN]);
+}
 async function loadData(){
   if(_loadEmAndamento)return;
   _loadEmAndamento=true;
-  const badge=document.getElementById('badgeUpdated');
   try{
-    const C=await idbGet_('dash');
+    const C=_dadosNaTela?null:await idbGet_('dash');
     if(C&&C.D&&(Date.now()-C.t)<IDB_TTL){
-      try{aplicarDados_(C.D);if(badge)badge.textContent='🟡 Atualizando…';}catch(e){console.warn('cache local inválido',e);_dadosNaTela=false;}
+      try{aplicarDados_(C.D);}catch(e){console.warn('cache local inválido',e);_dadosNaTela=false;}
     }
     try{
       const D=await fetchGas_();
       if(!(_dadosNaTela&&C&&C.D&&C.D.todayMs===D.todayMs))aplicarDados_(D);
       else marcarAtualizado_(D);
       idbPut_('dash',{t:Date.now(),D:D});
+      _retryN=0;
     }catch(e){
       if(!_dadosNaTela)throw e;
-      if(badge){badge.textContent='🟠 Dados da última visita · clique para tentar de novo';badge.style.cursor='pointer';badge.onclick=()=>{badge.onclick=null;badge.style.cursor='';loadData();};}
+      if(_dadosAtuais)marcarAtualizado_(_dadosAtuais);
       console.warn('atualização falhou',e);
+      agendarNovaTentativa_();
     }
   }catch(e){
-    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">⚠️</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
+    console.warn('Erro ao carregar dados:',e);
+    agendarNovaTentativa_();
+    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--t2);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:40px;margin-bottom:16px">⏳</div>Não foi possível carregar os dados agora.<br><span style="font-size:14px">Vamos tentar de novo automaticamente em instantes.</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
   }finally{_loadEmAndamento=false;}
 }
 function marcarAtualizado_(D){
@@ -472,7 +482,11 @@ function marcarAtualizado_(D){
   if(badge){
     const dtUpd=D.todayMs?new Date(D.todayMs):null;
     const fmtUpd=dtUpd?String(dtUpd.getDate()).padStart(2,'0')+'/'+String(dtUpd.getMonth()+1).padStart(2,'0')+'/'+dtUpd.getFullYear()+' '+String(dtUpd.getHours()).padStart(2,'0')+':'+String(dtUpd.getMinutes()).padStart(2,'0'):'—';
-    badge.textContent='🟢 Atualizado '+fmtUpd;
+    // Selo neutro: "Atualizado em ..."; só fica amarelo quando os dados na tela têm mais de 1 dia
+    _dadosAtuais=D;
+    const velho=!D.todayMs||(Date.now()-D.todayMs)>24*60*60*1000;
+    badge.textContent=(velho?'🕒 ':'🟢 ')+'Atualizado em '+fmtUpd;
+    badge.style.color=velho?'#fbbf24':'';badge.style.background=velho?'rgba(251,191,36,.12)':'';
   }
 }
 function aplicarDados_(D){
@@ -1410,7 +1424,7 @@ function rnRemoveTag(turma){
 function renderRenov(){
   const cont=document.getElementById('cRenov');
   if(!CONSOLIDADO.length){
-    cont.innerHTML='<div class="card" style="text-align:center;padding:40px;color:var(--t2)">Dados de renovação não disponíveis. Verifique se o script GAS foi atualizado e reimplantado.</div>';
+    cont.innerHTML='<div class="card" style="text-align:center;padding:40px;color:var(--t2)">Dados de renovação não disponíveis no momento.</div>';
     return;
   }
 
@@ -1748,8 +1762,8 @@ function pqRenderLista(){
   var pub=PQ_F.pub==='aluno'?' · só alunos':PQ_F.pub==='nao'?' · só não alunos':'';
   var semContato=!PQ_LISTA.lista.some(function(o){return o.nome||o.email;});
   document.getElementById('pqMdH').innerHTML='<div style="display:flex;gap:10px;align-items:flex-start"><div><div class="pq-md-k">Pesquisa Arrematador Caixa'+pub+'</div><div class="pq-md-t">'+pqEsc(c.titulo)+'</div><div style="font:12px JetBrains Mono;color:var(--t3);margin-top:4px">'+fN(tot)+' formulários · '+fN(nU)+' pessoas</div></div><button class="pq-btn pq-x" onclick="pqFechar()" title="Fechar (Esc)">×</button></div>'
-    +(semContato?'<div class="pq-note" style="margin:10px 0 0;color:var(--gold)">Nome e contato aparecem depois que a nova versão do GAS for publicada.</div>':'')
-    +'<div class="pq-md-a"><input id="pqBusca" placeholder="Buscar nome, e-mail, telefone ou nº do imóvel" value="'+pqEsc(PQ_BUSCA)+'" oninput="PQ_BUSCA=this.value;pqRenderCorpo()"><button class="pq-btn" onclick="pqCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="pqCsv()">⬇️ Baixar planilha</button></div>';
+    +(semContato?'<div class="pq-note" style="margin:10px 0 0;color:var(--gold)">Nome e contato ainda não disponíveis.</div>':'')
+    +'<div class="pq-md-a"><input id="pqBusca" placeholder="Buscar nome, e-mail, telefone ou nº do imóvel" value="'+pqEsc(PQ_BUSCA)+'" oninput="PQ_BUSCA=this.value;pqRenderCorpo()"><button class="pq-btn" onclick="pqCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="pqCsv()">⬇️ Baixar lista</button></div>';
   pqRenderCorpo();
 }
 function pqRenderCorpo(){
@@ -1784,17 +1798,17 @@ function pqCsv(){
 
 // ===== GUIA LEILÃO — adesão por turma (fonte: coluna "Guia leilão" da dataorigin, cruzada por e-mail no GAS) =====
 let GL_BASE=[],GL_LISTA=null,GL_BUSCA='';
-var GL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos o Guia Leilão</div><div style="font-size:11px;line-height:1.7;text-align:left">Base: só quem está na planilha cs (dataorigin), respeitando os filtros do topo.<br><b>No Guia</b>: coluna <b>Guia leilão</b> da dataorigin preenchida, casando pelo e-mail.<br>Turma: a mesma turma usada no resto do painel.</div>';
+var GL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos o Guia Leilão</div><div style="font-size:11px;line-height:1.7;text-align:left">Base: alunos da base, respeitando os filtros do topo.<br><b>No Guia</b>: marcação de <b>Guia leilão</b> no cadastro do aluno, casando pelo e-mail.<br>Turma: a mesma turma usada no resto do painel.</div>';
 function glTurma_(r){return effTurma(r)||'Sem turma';}
 function glBloco(cs){
   GL_BASE=cs;
   let h='<div class="sec">🧭 Guia Leilão · Adesão'+helpQ('GL_DEF')+'</div>';
-  if(!cs.some(r=>r.guia!==undefined))return h+'<div class="card"><div class="pq-empty">A marcação do Guia Leilão entra com a nova versão do script (GAS).</div></div>';
+  if(!cs.some(r=>r.guia!==undefined))return h+'<div class="card"><div class="pq-empty">A marcação do Guia Leilão ainda não está disponível.</div></div>';
   const tot=cs.length,noG=cs.filter(r=>r.guia).length,fora=tot-noG,pc=tot?noG/tot*100:0;
   h+='<div class="g4" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px">';
   h+='<div class="card pq-click" style="cursor:pointer" onclick="glAbrir(\'sim\')"><h3>No Guia Leilão</h3><div style="font:700 32px JetBrains Mono;color:var(--green);margin:6px 0">'+fN(noG)+'</div><div class="d">'+fP(pc)+' da base · ver quem são →</div></div>';
   h+='<div class="card pq-click" style="cursor:pointer" onclick="glAbrir(\'nao\')"><h3>Fora do Guia</h3><div style="font:700 32px JetBrains Mono;color:var(--red);margin:6px 0">'+fN(fora)+'</div><div class="d">'+fP(100-pc)+' da base · ver quem são →</div></div>';
-  h+='<div class="card"><h3>Base considerada</h3><div style="font:700 32px JetBrains Mono;color:var(--t1);margin:6px 0">'+fN(tot)+'</div><div class="d">alunos da planilha cs no filtro atual</div></div>';
+  h+='<div class="card"><h3>Base considerada</h3><div style="font:700 32px JetBrains Mono;color:var(--t1);margin:6px 0">'+fN(tot)+'</div><div class="d">alunos da base no filtro atual</div></div>';
   h+='</div>';
   const T={};cs.forEach(r=>{const t=glTurma_(r);if(!T[t])T[t]={n:0,g:0};T[t].n++;if(r.guia)T[t].g++;});
   const ord=Object.keys(T).sort((a,b)=>{const na=a==='Sem turma'?999:parseInt(a.replace('T','')),nb=b==='Sem turma'?999:parseInt(b.replace('T',''));return na-nb;});
@@ -1821,7 +1835,7 @@ function glRender(){
   const tab=(m,t)=>'<button class="pq-btn" style="'+(GL_LISTA.modo===m?'background:var(--accent);color:#fff;border-color:var(--accent)':'')+'" onclick="GL_LISTA.modo=\''+m+'\';glRender()">'+t+'</button>';
   document.getElementById('glMdH').innerHTML='<div style="display:flex;gap:10px;align-items:flex-start"><div><div class="pq-md-k">Guia Leilão'+(GL_LISTA.turma?' · '+pqEsc(GL_LISTA.turma):'')+'</div><div class="pq-md-t">'+fN(nS)+' de '+fN(base.length)+' no Guia ('+fP(base.length?nS/base.length*100:0)+')</div></div><button class="pq-btn pq-x" onclick="glFechar()" title="Fechar (Esc)">×</button></div>'
     +'<div class="pq-md-a" style="flex-wrap:wrap">'+tab('sim','✅ No Guia ('+fN(nS)+')')+tab('nao','❌ Fora ('+fN(nN)+')')+tab('todos','Todos ('+fN(base.length)+')')+'</div>'
-    +'<div class="pq-md-a"><input id="glBusca" placeholder="Buscar nome, e-mail ou telefone" value="'+pqEsc(GL_BUSCA)+'" oninput="GL_BUSCA=this.value;glCorpo()"><button class="pq-btn" onclick="glCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="glCsv()">⬇️ Baixar planilha</button></div>';
+    +'<div class="pq-md-a"><input id="glBusca" placeholder="Buscar nome, e-mail ou telefone" value="'+pqEsc(GL_BUSCA)+'" oninput="GL_BUSCA=this.value;glCorpo()"><button class="pq-btn" onclick="glCopiarEmails()">📋 Copiar e-mails</button><button class="pq-btn" onclick="glCsv()">⬇️ Baixar lista</button></div>';
   glCorpo();
 }
 function glCorpo(){
@@ -1851,7 +1865,7 @@ function glCsv(){
 
 function renderPesqAC(){
   var el=document.getElementById('cPesqAC');if(!el)return;
-  if(!PESQ_AC||!PESQ_AC.rows||!PESQ_AC.rows.length){el.innerHTML='<div class="pq-empty">Sem dados da pesquisa ainda.<br><span style="font-size:12px">A leitura da aba "Formulário Gui Arrematado caixa" entra com a nova versão do GAS.</span></div>';return;}
+  if(!PESQ_AC||!PESQ_AC.rows||!PESQ_AC.rows.length){el.innerHTML='<div class="pq-empty">Sem dados da pesquisa ainda.<br><span style="font-size:12px">As respostas do formulário ainda não estão disponíveis.</span></div>';return;}
   PQ_CLK=[];var R=pqRows(),N=R.length;
   var dtNova=null;PESQ_AC.rows.forEach(function(r){var o=r[PESQ_AC.campos.indexOf('objetivo')];var d=r[0];if(o&&(!dtNova||d<dtNova))dtNova=d;});
   var fmtD=function(t){var d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
@@ -2140,7 +2154,7 @@ const ATEND_SNAPSHOT={
   alltime:{disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,disparos_por_aluno:0,conversas_unicas:0,meta_proporcional:0,pct_meta:0,pace_diario:0,dias_corridos:0},
   mes_atual:{label:'—',disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,dias_decorridos:0,meta:0,meta_proporcional:0,pct_meta:0,projecao_fim_mes:0},
   periodos:{
-    d7:{label:'Últimos 7 dias',sublabel:'aguardando dados do servidor (deploy do GAS + SUPABASE_KEY)',disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,disparos_por_aluno:0,msgs_aluno:0,msgs_tcs:0,assuntos:[],nuvem:[],desafio:{},frases:{},ritmo:null,heatmap:null},
+    d7:{label:'Últimos 7 dias',sublabel:'aguardando dados',disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,disparos_por_aluno:0,msgs_aluno:0,msgs_tcs:0,assuntos:[],nuvem:[],desafio:{},frases:{},ritmo:null,heatmap:null},
     d8_14:{label:'Semana retrasada',sublabel:'aguardando dados',disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,disparos_por_aluno:0,msgs_aluno:0,msgs_tcs:0,assuntos:[],nuvem:[],desafio:{},frases:{},ritmo:null,heatmap:null},
     mai:{label:'Mês fechado',sublabel:'aguardando dados',disparos:0,respostas:0,taxa_resp:0,alunos_atendidos:0,disparos_por_aluno:0,msgs_aluno:0,msgs_tcs:0,assuntos:[],nuvem:[],desafio:{},frases:{},ritmo:null,heatmap:null}
   }
@@ -2171,23 +2185,23 @@ function aplicarFiltroDataAtend(){
     msgs_aluno:0, msgs_tcs:0,
     assuntos:[], desafio:{pct_mencionou:0,n_mencionou:0,pct_engajou:0,n_engajou:0},
     frases:{}, ritmo:null, heatmap:null,
-    observacao:'⏳ Buscando dados do Supabase…'
+    observacao:'⏳ Buscando dados…'
   };
   ATEND_PERIODO_ATUAL='custom';
   renderAtendimento();
   // Fetch real do GAS+Supabase
   fetchAtendimentoCustom(de, ate).then(data=>{
     if(data && data.error){
-      ATEND_SNAPSHOT.periodos.custom.observacao = '❌ Erro: '+data.error;
+      ATEND_SNAPSHOT.periodos.custom.observacao = 'Não foi possível carregar este período agora. Tente de novo em instantes.';
     } else if(data && data.atendimento_custom){
       mergeAtendimentoFromServer(data.atendimento_custom);
     } else {
-      ATEND_SNAPSHOT.periodos.custom.observacao = '⚠️ Resposta vazia do servidor — verifica se o GAS foi atualizado com o código novo e redeployado.';
+      ATEND_SNAPSHOT.periodos.custom.observacao = 'Sem dados para este período no momento.';
     }
     renderAtendimento();
   }).catch(e=>{
     console.warn('Filtro custom falhou:',e);
-    ATEND_SNAPSHOT.periodos.custom.observacao = '❌ Erro: '+e.message+' — verifica se o GAS foi atualizado com o código novo (doGet com atend_de/atend_ate) e redeployado.';
+    ATEND_SNAPSHOT.periodos.custom.observacao = 'Não foi possível carregar este período agora. Tente de novo em instantes.';
     renderAtendimento();
   });
 }
@@ -2342,7 +2356,7 @@ function renderAtendimento(){
   h+='</div>';
   h+='</div>';
   h+='<div style="font-size:13px;color:var(--t2);margin-bottom:6px">Período: <strong style="color:var(--t1)">'+p.label+'</strong> · '+p.sublabel+'</div>';
-  h+='<div style="font-size:11px;color:var(--t3);margin:-2px 0 12px;line-height:1.5">📌 <b>Disparos</b> = mensagens de campanha do bot (chatwoot), excluindo contatos de teste. O período conta <b>dias inteiros do calendário</b> (do 1º dia às 00:00 até agora) — então "Últimos 7 dias" = o intervalo mostrado acima, completo.</div>';
+  h+='<div style="font-size:11px;color:var(--t3);margin:-2px 0 12px;line-height:1.5">📌 <b>Disparos</b> = mensagens de campanha enviadas aos alunos, excluindo contatos de teste. O período conta <b>dias inteiros do calendário</b> (do 1º dia às 00:00 até agora) — então "Últimos 7 dias" = o intervalo mostrado acima, completo.</div>';
   if(p.observacao){
     h+='<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:12px 16px;margin:14px 0;font-size:12px;color:var(--t2);line-height:1.55">⚠️ '+p.observacao+'</div>';
   }
@@ -2395,7 +2409,7 @@ function renderAtendimento(){
     const taxaGeral=F.total?(100*F.total_resp/F.total):0;
     const notaCustom=(ATEND_PERIODO_ATUAL==='custom')?' · (intervalo custom mostra all-time)':'';
     h+='<div class="sec">🎯 Disparos por Funil — '+p.label+'</div>';
-    h+='<div class="card"><h3>Para qual estágio do funil os disparos foram</h3><div class="d">Disparos (chatwoot) cruzados com o funil de cada aluno · '+fN(F.total)+' com e-mail identificado · <strong style="color:var(--green)">'+taxaGeral.toFixed(1)+'%</strong> dos disparos tiveram resposta do aluno no período'+notaCustom+'</div>';
+    h+='<div class="card"><h3>Para qual estágio do funil os disparos foram</h3><div class="d">Disparos cruzados com o funil de cada aluno · '+fN(F.total)+' com e-mail identificado · <strong style="color:var(--green)">'+taxaGeral.toFixed(1)+'%</strong> dos disparos tiveram resposta do aluno no período'+notaCustom+'</div>';
     h+='<div style="font-size:11px;color:var(--t3);margin:-4px 0 12px;line-height:1.5">ℹ️ Métrica do <strong>disparo</strong> (quem recebeu E respondeu no período). Difere da "Taxa de resposta" do topo, que conta toda conversa ativa no período sobre os disparos — por isso é maior.</div>';
     const funilOrdem=['Nunca acessou','Acessou mas não consumiu','Consumiu pouco','Desengajado','Engajado','Recompra'];
     const fcores={'Nunca acessou':'#64748b','Acessou mas não consumiu':'#fb923c','Consumiu pouco':'#fbbf24','Desengajado':'#f87171','Engajado':'#34d399','Recompra':'#22d3ee'};
@@ -2490,7 +2504,7 @@ function renderAtendimento(){
     const CM={onboarding:{l:'Onboarding',e:'📨',c:'var(--accent)'},engajamento:{l:'Engajamento',e:'💪',c:'#34d399'},reabridor:{l:'Reabridor 24h',e:'🔓',c:'#fb923c'},renovacao:{l:'Renovação',e:'🔄',c:'#a78bfa'},outras:{l:'Outras mensagens',e:'💬',c:'#94a3b8'}};
     const totEnv=CPlist.reduce((a,b)=>a+(+b.n||0),0);
     h+='<div class="sec">✍️ Copys do disparo — '+p.label+'</div>';
-    h+='<div class="card"><h3>Estratégias de disparo do período</h3><div class="d">'+CPlist.length+' tipo(s) de mensagem · '+fN(totEnv)+' envios no total · copy = 1ª mensagem do disparo (nota privada do bot)</div>';
+    h+='<div class="card"><h3>Estratégias de disparo do período</h3><div class="d">'+CPlist.length+' tipo(s) de mensagem · '+fN(totEnv)+' envios no total · copy = 1ª mensagem do disparo</div>';
     CPlist.forEach(cp=>{
       const m=CM[cp.tipo]||{l:cp.tipo,e:'💬',c:'#94a3b8'};
       h+='<div style="margin:14px 0;padding:14px 16px;background:rgba(255,255,255,.02);border-radius:10px;border-left:3px solid '+m.c+'">';
@@ -2556,8 +2570,8 @@ function renderAtendimento(){
     const TU='<div class=tt-title>📈 Subiram no funil</div><div class=tt-row>Alunos que avançaram pelo menos um estágio na ordem do funil entre o 1º registro e hoje (ex.: Acessou → Engajado). Estão esquentando.</div>';
     const TT='<div class=tt-title>🏆 Chegaram em Engajado/Recompra</div><div class=tt-row>Alunos que alcançaram o topo do funil (Engajado ou Recompra) vindos de um estágio mais baixo. São os alvos de recompra e ascensão de produto.</div>';
     const TA='<div class=tt-title>⚠️ Atenção</div><div class=tt-row>Alunos que voltaram um estágio no funil entre o 1º registro e hoje (ex.: Engajado → Desengajado, ou pararam de acessar). Merecem atenção da CS.</div>';
-    const TRR='<div class=tt-title>Recorte: últimos 30 dias</div><div class=tt-row>CORTE: só alunos que receberam disparo nos últimos 30 dias. DADO: estágio do funil no 1º snapshot salvo vs o atual (aba Funil_Historico). "Comparáveis" = quantos já têm 2+ dias de histórico pra comparar.</div>';
-    const TRT='<div class=tt-title>Recorte: total (desde o início)</div><div class=tt-row>CORTE: TODOS os alunos que já receberam disparo, em qualquer data — NÃO é a base inteira, só quem foi trabalhado pela CS. DADO: estágio do funil no 1º snapshot salvo vs o atual (aba Funil_Historico). "Comparáveis" = quantos já têm 2+ dias de histórico.</div>';
+    const TRR='<div class=tt-title>Recorte: últimos 30 dias</div><div class=tt-row>CORTE: só alunos que receberam disparo nos últimos 30 dias. DADO: etapa do funil no 1º registro salvo vs a atual. "Comparáveis" = quantos já têm 2+ dias de histórico pra comparar.</div>';
+    const TRT='<div class=tt-title>Recorte: total (desde o início)</div><div class=tt-row>CORTE: TODOS os alunos que já receberam disparo, em qualquer data — NÃO é a base inteira, só quem foi trabalhado pela CS. DADO: etapa do funil no 1º registro salvo vs a atual. "Comparáveis" = quantos já têm 2+ dias de histórico.</div>';
     const recorte=(titulo,R,sub,tipRec)=>{
       if(!R || R.total===0) return '';
       let x='<div class="card" style="margin-bottom:14px"><h3 style="display:inline-flex;align-items:center;flex-wrap:wrap">'+titulo+QM(tipRec)+'</h3><div class="d">'+sub+' · '+fN(R.comparaveis)+' alunos comparáveis</div>';
@@ -2572,9 +2586,9 @@ function renderAtendimento(){
       } else { x+='<div style="font-size:12px;color:var(--t3);margin-top:8px">Ainda sem 2 dias distintos pra comparar — preenche conforme o histórico cresce.</div>'; }
       return x+'</div>';
     };
-    const tipMov='<div class=tt-title>🔄 Movimentação de Funil</div><div class=tt-row>Foto diária do estágio do funil de cada aluno (aba Funil_Historico). Compara o 1º dia registrado vs hoje pra ver quem avançou ou recuou no funil. Só considera quem recebeu disparo.</div>';
+    const tipMov='<div class=tt-title>🔄 Movimentação de Funil</div><div class=tt-row>Foto diária do estágio do funil de cada aluno. Compara o 1º dia registrado vs hoje pra ver quem avançou ou recuou no funil. Só considera quem recebeu disparo.</div>';
     h+='<div class="sec" style="display:inline-flex;align-items:center;gap:8px">🔄 Movimentação de Funil'+QM(tipMov)+'</div>';
-    h+='<div style="font-size:12px;color:var(--t3);margin:-6px 0 14px">📸 Base de comparação: 1º snapshot ('+fmtMD(M.baseline)+') → hoje ('+fmtMD(M.atual)+') · '+M.dias_distintos+' dia(s) de histórico salvos</div>';
+    h+='<div style="font-size:12px;color:var(--t3);margin:-6px 0 14px">📸 Base de comparação: 1º registro ('+fmtMD(M.baseline)+') → hoje ('+fmtMD(M.atual)+') · '+M.dias_distintos+' dia(s) de histórico salvos</div>';
     h+='<div style="font-size:11.5px;color:var(--t3);margin:0 0 14px;line-height:1.55;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px">📊 Ordem do funil: <b style="color:var(--t2)">Nunca acessou → Acessou → Consumiu → Engajado → Recompra</b>.<br><b style="color:var(--green)">Subir</b> = avançar nessa ordem (aluno esquentando) · <b style="color:var(--red)">Atenção</b> = voltar um estágio (aluno esfriando, merece atenção da CS).</div>';
     h+=recorte('Recente · últimos 30 dias',M.recente,'Alunos que receberam disparo nos últimos 30 dias',TRR);
     h+=recorte('Total · desde o início do acompanhamento',M.total,'Todos que já receberam disparo (qualquer data)',TRT);
@@ -2585,7 +2599,7 @@ function renderAtendimento(){
 
   // === Rodapé com fonte de dados ===
   h+='<div style="margin-top:32px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--t3);line-height:1.6;font-family:JetBrains Mono">';
-  h+='Fonte: Supabase CS-IA · cliente Bruno Lucarelli · exclui contatos "Tiago"/"Teste" · disparo = cada nota privada do bot (cada mensagem conta, mesmo aluno pode receber várias) · resposta = aluno respondeu antes do próximo disparo · 1 conversa = 1 assunto dominante (classificação hierárquica)';
+  h+='Disparo = cada mensagem enviada (o mesmo aluno pode receber várias) · resposta = aluno respondeu antes do próximo disparo · 1 conversa = 1 assunto principal';
   h+='</div>';
 
   cont.innerHTML=h;
