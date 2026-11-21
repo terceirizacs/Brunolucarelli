@@ -563,7 +563,8 @@ function marcarAtualizado_(D){
 function aplicarDados_(D){
   {
     if(D.atendimento&&typeof mergeAtendimentoFromServer==='function'){try{mergeAtendimentoFromServer(D.atendimento);}catch(_e){console.warn('merge atend',_e);}}
-    CS=D.cs;CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
+    // Arrematador Caixa não é aluno da mentoria: essas linhas saem da base do Pro e ficam só no produto Caixa
+    CS_AC=(D.cs||[]).filter(acEhCaixa_);CS=(D.cs||[]).filter(function(r){return !acEhCaixa_(r);});CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
     marcarAtualizado_(D);
 
     // Build sets de arrematadores + mapa turma (da aba Controle de arrematação) — mesmos filtros do getFA
@@ -621,7 +622,7 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 function hbarTip(e,el){const l=el.dataset.hlbl,c=el.dataset.hcnt,p=el.dataset.hpct;let h='<div class="tt-title">'+l+'</div><div class="tt-row"><span class="tt-label">Quantidade:</span><span class="tt-value">'+c+'</span></div>';if(p)h+='<div class="tt-row"><span class="tt-label">% do total:</span><span class="tt-value">'+p+'</span></div>';showTip(e,h);}
 
 
-let PESQ_AC=null;let CS=[],CK=[],AR=[],DV=[],AV=[],NPS=[],CONSOLIDADO=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set();
+let PESQ_AC=null;let CS_AC=[];let CS=[],CK=[],AR=[],DV=[],AV=[],NPS=[],CONSOLIDADO=[],NOW=Date.now(),arrNomesSet=new Set(),arrEmailsSet=new Set();
 const fN=n=>n.toLocaleString('pt-BR');
 const fR=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
 const fP=n=>n.toFixed(1).replace('.',',')+' %';
@@ -1767,9 +1768,9 @@ function pqPartes(campo,v,multi){v=String(v||'').trim();if(!v)return [];return (
 // Guarda o que cada clique deve listar: campo + rótulos aceitos
 function pqReg(titulo,campo,labels,multi){PQ_CLK.push({titulo:titulo,campo:campo,labels:labels,multi:!!multi});return PQ_CLK.length-1;}
 function pqEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function pqSetPub(v){PQ_F.pub=v;renderPesqAC();}
+function pqSetPub(v){PQ_F.pub=v;renderPesqAC();try{renderAC();}catch(_e){}}
 function pqSetData(){var a=document.getElementById('pqDe'),b=document.getElementById('pqAte');PQ_F.de=a?a.value:'';PQ_F.ate=b?b.value:'';renderPesqAC();}
-function pqLimpar(){PQ_F={pub:'todos',de:'',ate:''};renderPesqAC();}
+function pqLimpar(){PQ_F={pub:'todos',de:'',ate:''};renderPesqAC();try{renderAC();}catch(_e){}}
 function pqRows(){
   if(!PESQ_AC||!PESQ_AC.rows)return [];
   var c=PESQ_AC.campos,ix={};c.forEach(function(k,i){ix[k]=i;});
@@ -2714,6 +2715,7 @@ var AC_TEMAS=[
   ['Elogio ao acompanhamento','var(--green)',/excelente|parab[eé]ns|nota 1000|nota 10\b|muito bom|satisfeit|bacana|\blegal\b|ajudaram|gostei|[óo]timo|conquista|feliz/i],
   ['Nova arrematação ou indicação','var(--pink)',/arrematei (outro|mais)|outro im[oó]vel|indiquei|este [eé] o segundo|2 im[oó]veis|\d+ arremata/i]
 ];
+function acEhCaixa_(r){return /arrematador\s*caixa/i.test(String((r&&r.produto)||''));}
 function acEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function acD(t){var d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');}
 function acDA(t){return acD(t)+'/'+new Date(t).getFullYear();}
@@ -2772,19 +2774,28 @@ async function acHash(s){
 async function acCruzarCheckin(){
   if(!AC_REGUA||!window.crypto||!crypto.subtle)return false;
   var F=acForm();if(!F.length)return false;
-  var key=F.length+'|'+AC_REGUA.gerado_em;if(key===AC_CRUZ_KEY)return false;
-  var idx={};
+  var key=F.length+'|'+AC_REGUA.gerado_em+'|'+(CS||[]).length;if(key===AC_CRUZ_KEY)return false;
+  var idx={},al={};
   for(var i=0;i<F.length;i++){
     var o=F[i],ks=[];
     var tel=String(o.telefone||'').replace(/\D/g,'');if(tel.length>=8)ks.push(await acHash(tel.slice(-8)));
     var em=String(o.email||'').trim().toLowerCase();if(em)ks.push(await acHash(em));
-    ks.forEach(function(k){(idx[k]=idx[k]||[]).push(o.data);});
+    ks.forEach(function(k){(idx[k]=idx[k]||[]).push(o.data);if(o.aluno==='Sim'||o.aluno==='Não'){var a=al[k]=al[k]||{};a[o.aluno]=1;}});
+  }
+  // base da mentoria (planilha dos alunos): quem está nela é aluno, mesmo sem ter respondido a pergunta
+  var men={};
+  for(var j=0;j<(CS||[]).length;j++){
+    var r=CS[j],e1=String(r.email||'').trim().toLowerCase(),t1=String(r.telefone||'').replace(/\D/g,'');
+    if(e1)men[await acHash(e1)]=1;
+    if(t1.length>=8)men[await acHash(t1.slice(-8))]=1;
   }
   AC_REGUA.contatos.forEach(function(c){
     var ds=[].concat(idx[c.tel_h]||[],idx[c.email_h]||[]);
     c.ckAchou=ds.length>0;
     c.ckDepois=ds.some(function(d){return d>c.ts;});
     c.ckAntes=ds.some(function(d){return d<=c.ts;});
+    var a1=al[c.tel_h]||{},a2=al[c.email_h]||{};
+    c.aluno=(a1.Sim||a2.Sim||men[c.tel_h]||men[c.email_h])?'Sim':((a1['Não']||a2['Não'])?'Não':'');
   });
   AC_CRUZ_KEY=key;return true;
 }
@@ -2796,10 +2807,26 @@ function acTemasDe(txt){
 }
 function acCorTema(n){for(var i=0;i<AC_TEMAS.length;i++)if(AC_TEMAS[i][0]===n)return AC_TEMAS[i][1];return 'var(--t3)';}
 function acEtapaDe(tp){for(var i=0;i<AC_ETAPAS.length;i++)if(AC_ETAPAS[i].tps.indexOf(tp)>=0)return AC_ETAPAS[i];return null;}
+function acPub(){return (typeof PQ_F!=='undefined'&&PQ_F.pub)||'todos';}
+function acSetPub(v){PQ_F.pub=v;try{renderPesqAC();}catch(e){}renderAC();}
+function acPubBar(S){
+  var p=acPub(),pill=function(v,l){return '<button class="pq-pill'+(p===v?' on':'')+'" onclick="acSetPub(\''+v+'\')">'+l+'</button>';};
+  var h='<div class="pq-bar" style="margin-top:14px"><span class="pq-lbl">Público</span><div class="pq-pills">'+pill('todos','Todos')+pill('aluno','Alunos da mentoria (Arrematador Pro)')+pill('nao','Só Arrematador Caixa (não alunos)')+'</div>';
+  if(p!=='todos')h+='<button class="filter-clear" onclick="acSetPub(\'todos\')">Limpar</button>';
+  h+='</div>';
+  if(p!=='todos'){
+    var n=S&&S.ok?S.semPub:0;
+    h+='<div class="pq-note" style="margin:10px 2px 0">Aluno = respondeu "sim" no check-in ou está na base da mentoria. Não aluno = respondeu "não" no check-in. Quem não respondeu essa pergunta e não está na base só aparece em "Todos"'+(n?' ('+fN(n)+' contatos da régua nessa situação)':'')+'.</div>';
+  }
+  return h;
+}
 function acStats(){
-  var S={ok:!!AC_REGUA,C:[],porTp:{},clientes:0,negocios:0,resp:[],temas:{},semanas:[]};
+  var S={ok:!!AC_REGUA,C:[],porTp:{},clientes:0,negocios:0,resp:[],temas:{},semanas:[],semPub:0};
   if(!AC_REGUA)return S;
-  var C=AC_REGUA.contatos;S.C=C;
+  var C=AC_REGUA.contatos,pb=acPub();
+  S.semPub=C.filter(function(c){return !c.aluno;}).length;
+  if(pb!=='todos')C=C.filter(function(c){return pb==='aluno'?c.aluno==='Sim':c.aluno==='Não';});
+  S.C=C;
   var cl={};
   C.forEach(function(c){
     cl[c.cid]=1;S.negocios+=(c.neg||1);
@@ -2831,7 +2858,9 @@ function acStats(){
   return S;
 }
 function acFormStats(){
-  var F=acForm(),S={F:F,n:F.length,meses:[],mesAtual:0,mesAnt:0,unicos:0,multi:0,aluno:0,alunoN:0,inseg:{},insegN:0,p6:0,p6N:0,desoc:0,desocN:0,ocup:0,ocupN:0};
+  var F=acForm(),pb=acPub();
+  if(pb!=='todos')F=F.filter(function(o){return pb==='aluno'?o.aluno==='Sim':o.aluno==='Não';});
+  var S={F:F,n:F.length,meses:[],mesAtual:0,mesAnt:0,unicos:0,multi:0,aluno:0,alunoN:0,inseg:{},insegN:0,p6:0,p6N:0,desoc:0,desocN:0,ocup:0,ocupN:0};
   if(!F.length)return S;
   var mm={},pes={};
   F.forEach(function(o){
@@ -2904,7 +2933,7 @@ function acIns(tipo,t,d){return '<div class="ins '+tipo+'"><div class="ins-t">'+
 function renderAC(){
   var eE=document.getElementById('cAcExec'),eR=document.getElementById('cAcRegua'),eV=document.getElementById('cAcVoz');
   if(!eE)return;
-  if(AC_REGUA&&PESQ_AC&&(acForm().length+'|'+AC_REGUA.gerado_em)!==AC_CRUZ_KEY){acCruzarCheckin().then(function(mudou){if(mudou)renderAC();}).catch(function(e){console.warn('cruzamento check-in',e);});}
+  if(AC_REGUA&&PESQ_AC&&(acForm().length+'|'+AC_REGUA.gerado_em+'|'+(CS||[]).length)!==AC_CRUZ_KEY){acCruzarCheckin().then(function(mudou){if(mudou)renderAC();}).catch(function(e){console.warn('cruzamento check-in',e);});}
   var S=acStats(),FS=acFormStats();
   try{eE.innerHTML=acHtmlExec(S,FS);}catch(e){console.warn('AC exec',e);eE.innerHTML='<div class="pq-empty">Erro ao montar a visão executiva.</div>';}
   try{eR.innerHTML=acHtmlRegua(S,FS);}catch(e){console.warn('AC régua',e);eR.innerHTML='<div class="pq-empty">Erro ao montar a régua.</div>';}
@@ -2913,12 +2942,14 @@ function renderAC(){
 function acHtmlExec(S,FS){
   var h='<div class="ac-top"><div><div class="ac-top-t">Arrematador Caixa · visão executiva</div><div class="ac-top-s">O que entra de imóvel, como o cliente é acompanhado no pós-arrematação e o que ele nos diz no caminho.</div></div>';
   h+='<div class="ac-top-f">'+(FS.n?'<span>Check-in: '+acDA(FS.desde)+' a '+acDA(FS.ate)+'</span>':'')+(S.desde?'<span>Régua: desde '+acDA(S.desde)+'</span>':'')+'</div></div>';
+  h+=acPubBar(S);
   // KPIs
   h+='<div class="kpis">';
   h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Imóveis no check-in',FS.n?fN(FS.n):'·',FS.n?'formulários recebidos':'sem dados do formulário','var(--a2)');
   h+=kpi('linear-gradient(90deg,var(--sky),var(--cyan))','Entraram neste mês',FS.n?fN(FS.mesAtual):'·',FS.n?fN(FS.mesAnt)+' no mês anterior':'','var(--sky)');
   h+=kpi('linear-gradient(90deg,var(--teal),var(--green))','Arrematantes únicos',FS.n?fN(FS.unicos):'·',FS.n?acFP(acPct(FS.multi,FS.unicos))+' com 2 ou mais imóveis':'','var(--teal)');
-  h+=kpi('linear-gradient(90deg,var(--pink),var(--accent))','Alunos da mentoria',FS.alunoN?acFP(acPct(FS.aluno,FS.alunoN)):'·',FS.alunoN?fN(FS.aluno)+' de '+fN(FS.alunoN)+' que informaram':'','var(--pink)');
+  if(acPub()==='todos')h+=kpi('linear-gradient(90deg,var(--pink),var(--accent))','Alunos da mentoria',FS.alunoN?acFP(acPct(FS.aluno,FS.alunoN)):'·',FS.alunoN?fN(FS.aluno)+' de '+fN(FS.alunoN)+' que informaram':'','var(--pink)');
+  else h+=kpi('linear-gradient(90deg,var(--pink),var(--accent))','Vão arrematar de novo',FS.p6N?acFP(acPct(FS.p6,FS.p6N)):'·',FS.p6N?fN(FS.p6)+' de '+fN(FS.p6N)+' respostas':'','var(--pink)');
   h+='</div>';
   if(S.ok&&S.env){
     h+='<div class="kpis" style="border-top:none;padding-top:0;margin-top:-4px">';
@@ -2959,6 +2990,7 @@ function acHtmlRegua(S,FS){
   if(!S.ok)return acAviso();
   var h=AC_ERRO?acAviso():'';
   h+='<div class="ac-top"><div><div class="ac-top-t">Régua de acompanhamento</div><div class="ac-top-s">Mensagens do time de Sucesso do Cliente ao longo do pós-arrematação'+(S.desde?', de '+acDA(S.desde)+' a '+acDA(S.ate):'')+'.</div></div></div>';
+  h+=acPubBar(S);
   if(!S.env)return h+'<div class="pq-empty">Nenhum contato da régua no período.</div>';
   h+='<div class="kpis">';
   h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Contatos enviados',fN(S.env),fN(S.clientes)+' clientes · '+fN(S.negocios)+' imóveis','var(--a2)');
@@ -3014,6 +3046,7 @@ function acVozTema(n,ir){
 function acHtmlVoz(S){
   if(!S.ok)return acAviso();
   var h='<div class="ac-top"><div><div class="ac-top-t">Voz do cliente</div><div class="ac-top-s">O que os clientes responderam às mensagens da régua. Só o primeiro nome aparece.</div></div></div>';
+  h+=acPubBar(S);
   if(!S.nResp)return h+'<div class="pq-empty">Nenhuma resposta ainda.</div>';
   var ets=[['todas','Todas as etapas']];AC_ETAPAS.forEach(function(e){if(e.tps.some(function(tp){return S.porTp[tp]&&S.porTp[tp].resp;}))ets.push([e.k,e.t]);});
   h+='<div class="pq-bar"><span class="pq-lbl">Etapa</span><div class="pq-pills">'+ets.map(function(x){return '<button class="pq-pill'+(AC_VOZ.et===x[0]?' on':'')+'" onclick="acVozEt(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+'</div>';
