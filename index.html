@@ -608,7 +608,7 @@ function aplicarDados_(D){
   {
     if(D.atendimento&&typeof mergeAtendimentoFromServer==='function'){try{mergeAtendimentoFromServer(D.atendimento);}catch(_e){console.warn('merge atend',_e);}}
     // Arrematador Caixa não é aluno da mentoria: essas linhas saem da base do Pro e ficam só no produto Caixa
-    CS_AC=(D.cs||[]).filter(acEhCaixa_);CS=(D.cs||[]).filter(function(r){return !acEhCaixa_(r);});CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
+    CS_AC=(D.cs||[]).filter(acEhCaixa_);CS=(D.cs||[]).filter(function(r){return !acEhCaixa_(r);});CK=D.checkin;AR=D.arrematacao;DV=D.desenvolvimento;AV=D.aoVivo||[];NPS=D.nps||[];PESQ_AC=D.pesquisaAC||null;AC_NEG=D.acNegocios||null;CONSOLIDADO=D.consolidado||[];NOW=D.todayMs;
     marcarAtualizado_(D);
 
     // Build sets de arrematadores + mapa turma (da aba Controle de arrematação) — mesmos filtros do getFA
@@ -2752,6 +2752,7 @@ const AC_SB_KEY='sb_publishable_vHvV-AFriGSOMlVF5wrBug_VnmUAZ16';
 const AC_CLIENTE='9bdd7112-bae1-47c0-b341-da4cd6202d32';
 var AC_REGUA=null,AC_ERRO='',AC_CARREGANDO=false,AC_CRUZ_KEY='',AC_VOZ={et:'todas',tema:'todos'};
 var _prodTab={pro:'geral',caixa:'acexec'};
+var AC_NEG=null;
 var AC_ETAPAS=[
   {k:'M1',tps:['M1A','M1B'],ic:'👋',t:'Boas-vindas',q:'3º dia útil após a triagem, pela manhã',o:'Apresentar o time de Sucesso do Cliente. Quem já fez o check-in recebe o agradecimento e o convite para conhecer o portal; quem não fez recebe o link para preencher.'},
   {k:'M2',tps:['M2'],ic:'⏳',t:'30 dias',q:'30 dias após a triagem, se o contrato ainda não saiu e o processo não chegou à reta final',o:'Tranquilizar: o processo segue andando. Ouvir como está o atendimento.'},
@@ -2992,6 +2993,45 @@ function acNeutro(n){return n==='Só agradeceu ou confirmou'||n==='Outros assunt
 function acOrd(m){return Object.keys(m).map(function(k){return [k,m[k]];}).sort(function(a,b){return (acNeutro(a[0])-acNeutro(b[0]))||(b[1]-a[1]);});}
 function acIns(tipo,t,d){return '<div class="ins '+tipo+'"><div class="ins-t">'+(tipo==='ok'?'✅ ':'⚠️ ')+t+'</div><div class="ins-p">'+d+'</div></div>';}
 
+/* ---------- Imóveis no acompanhamento (controle do processo: 1 linha = 1 imóvel) ---------- */
+function acNegM(c){c=String(c||'').trim();if(!c)return null;if(/^ERRO/i.test(c))return {s:'erro'};if(/N[ÃA]O SE APLICA/i.test(c))return {s:'na'};var m=c.match(/\(([^)]+)\)/);return {s:'env',cod:m?m[1].toUpperCase():''};}
+function acNegLista(){
+  if(!AC_NEG||!AC_NEG.length)return [];
+  var pb=acPub();if(pb==='todos')return AC_NEG;
+  var em={};(CS||[]).forEach(function(r){var e=String((r&&r.email)||'').trim().toLowerCase();if(e)em[e]=1;});
+  return AC_NEG.filter(function(n){var al=!!(n.email&&em[n.email]);return pb==='aluno'?al:!al;});
+}
+function acHtmlNegocios(){
+  var N=acNegLista();if(!AC_NEG||!AC_NEG.length)return '';
+  var h='<div class="sec">🏠 Imóveis no acompanhamento</div>';
+  if(!N.length)return h+'<div class="pq-empty">Nenhum imóvel nesse público.</div>';
+  var at=N.filter(function(n){return n.ativo;}),ina=N.filter(function(n){return !n.ativo;});
+  var concl=ina.filter(function(n){var a=acNegM(n.m[4]),b=acNegM(n.m[5]);return (a&&a.s==='env'&&a.cod==='M5A')||(b&&b.s==='env');}).length;
+  var contr=N.filter(function(n){return n.dtContrato;}).length,form=N.filter(function(n){return n.form;}).length,fim=N.filter(function(n){return n.fim;}).length;
+  h+='<div class="kpis">';
+  h+=kpi('linear-gradient(90deg,var(--accent),var(--a2))','Imóveis na régua',fN(N.length),fN(at.length)+' em acompanhamento','var(--a2)');
+  h+=kpi('linear-gradient(90deg,var(--green),var(--teal))','Check-in preenchido',acFP(acPct(form,N.length)),fN(form)+' de '+fN(N.length)+' imóveis','var(--green)');
+  h+=kpi('linear-gradient(90deg,var(--gold),var(--orange))','Contrato finalizado',fN(contr),acFP(acPct(contr,N.length))+' dos imóveis','var(--gold)');
+  h+=kpi('linear-gradient(90deg,var(--cyan),var(--sky))','Na reta final',fN(fim),'a partir da troca de titularidade','var(--cyan)');
+  h+='</div>';
+  h+='<div class="card" style="padding:8px 8px 4px;overflow:auto;margin-top:16px"><table class="pq-tb"><thead><tr><th>Mensagem</th><th style="text-align:right">Enviadas</th><th style="text-align:right">Aguardando a vez</th><th style="text-align:right">Não se aplica</th><th style="text-align:right">Não entregues</th></tr></thead><tbody>';
+  AC_ETAPAS.forEach(function(e,i){
+    var env=0,ag=0,na=0,er=0,cod={};
+    N.forEach(function(n){var x=acNegM(n.m[i]);if(!x){if(n.ativo)ag++;return;}if(x.s==='env'){env++;if(x.cod)cod[x.cod]=(cod[x.cod]||0)+1;}else if(x.s==='na')na++;else er++;});
+    var det=Object.keys(cod).length>1?Object.keys(cod).sort().map(function(k){return fN(cod[k])+' '+k;}).join(' · '):'';
+    var num=function(v,c){return '<td style="text-align:right;font-family:JetBrains Mono'+(v&&c?';color:'+c:'')+(v?'':';opacity:.45')+'">'+fN(v)+'</td>';};
+    h+='<tr><td><b>'+e.ic+' '+e.k+' · '+e.t+'</b>'+(det?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+det+'</div>':'')+'</td>'+num(env,'var(--green)')+num(ag)+num(na)+num(er,'var(--red)')+'</tr>';
+  });
+  h+='</tbody></table></div><div class="pq-note" style="margin:10px 2px 0">Contagem por imóvel, direto do controle do processo. Aguardando a vez = imóvel em acompanhamento que ainda não chegou ao prazo ou à etapa da mensagem. Não se aplica = a mensagem foi dispensada pela regra (por exemplo, o contrato saiu antes dos 30 dias).</div>';
+  var et={};at.forEach(function(n){var k=n.etapa||'Sem etapa';et[k]=(et[k]||0)+1;});
+  var etL=Object.keys(et).map(function(k){return [k,et[k]];}).sort(function(a,b){return b[1]-a[1];});
+  var av=N.filter(function(n){return /vista/i.test(n.funil);}).length,ff=N.filter(function(n){return /financ|fgts/i.test(n.funil);}).length;
+  h+='<div class="g2" style="margin-top:16px"><div class="card"><h3>Em que etapa do processo estão</h3><div class="d">Imóveis em acompanhamento, pela etapa atual do pós-arrematação.</div>'+acBarras(etL,at.length,'var(--a2)')+'</div>';
+  h+='<div class="card"><h3>Situação e forma de compra</h3><div class="d">Todos os imóveis que entraram na régua.</div>'+acBarras([['Em acompanhamento',at.length],['Régua concluída',concl],['Saíram do processo',ina.length-concl]].filter(function(i){return i[1]>0;}),N.length,function(n){return /acompanhamento/.test(n)?'var(--green)':/conclu/.test(n)?'var(--gold)':'var(--t3)';});
+  h+='<div style="height:14px"></div>'+acBarras([['À vista',av],['Financiado ou FGTS',ff]].filter(function(i){return i[1]>0;}),av+ff,'var(--sky)')+'</div></div>';
+  return h;
+}
+
 /* ---------- Abas ---------- */
 function renderAC(){
   var eE=document.getElementById('cAcExec'),eR=document.getElementById('cAcRegua'),eV=document.getElementById('cAcVoz');
@@ -3062,6 +3102,7 @@ function acHtmlRegua(S,FS){
   var c3=S.porTp.M3?S.porTp.M3.env:0;
   h+=kpi('linear-gradient(90deg,var(--gold),var(--orange))','Contratos comemorados',fN(c3),'mensagem de contrato assinado','var(--gold)');
   h+='</div>';
+  h+=acHtmlNegocios();
   // tabela por mensagem
   h+='<div class="sec">📨 Cada mensagem da régua</div><div class="card" style="padding:8px 8px 4px;overflow:auto"><table class="pq-tb"><thead><tr><th>Mensagem</th><th>Quando dispara</th><th style="text-align:right">Enviadas</th><th style="text-align:right">Responderam</th><th style="min-width:150px">Taxa de resposta</th><th style="text-align:right">Cliente responde em</th></tr></thead><tbody>';
   Object.keys(AC_TP).forEach(function(tp){
