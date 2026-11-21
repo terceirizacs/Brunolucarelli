@@ -389,6 +389,49 @@ body[data-prod="caixa"] .tab-btn.active{background:linear-gradient(135deg,#0ea5e
 .ac-msg-t{font-size:13px;color:var(--t2);line-height:1.6;background:var(--track-bg);border-radius:4px 14px 14px 14px;padding:10px 14px;overflow-wrap:anywhere}
 .ac-msg-f{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .ac-msg-f span{font-size:11px;font-weight:600;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);background:color-mix(in srgb,var(--c) 9%,transparent);padding:2px 8px;border-radius:7px}
+
+/* botão por ano + mapa Turma × Mês + respiro entre blocos */
+.ano-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.ano-nota{font-size:12px;color:var(--t3)}
+.tm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.tm-wrap{overflow-x:auto;margin-top:8px}
+.tm-tb.tm-all{min-width:1500px}
+.tm-tb td,.tm-tb th{white-space:nowrap}
+.tm-fix{position:sticky;left:0;background:var(--bg);z-index:2;border-radius:8px}
+.g2+.g2,.g2+.card,.card+.g2,.g3+.g2,.g2+.g3,.g3+.g3,.g2+.g4,.g3+.card,.card+.g3{margin-top:20px}
+.tab-content>div>.card+.card{margin-top:20px}
+/* ===== Camada visual (não altera dado): índice de seções, filtros recolhidos, listas longas ===== */
+.sec{scroll-margin-top:74px;color:var(--t2);font-size:13px;margin:44px 0 18px}
+.sec::before{content:'';width:4px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--accent),var(--teal));flex-shrink:0}
+.pro-idx{position:sticky;top:0;z-index:60;display:flex;gap:6px;align-items:center;overflow-x:auto;padding:10px 12px;margin:0 -12px 8px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--border);scrollbar-width:none}
+.pro-idx::-webkit-scrollbar{display:none}
+.pro-idx-l{font:600 10px 'JetBrains Mono';letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);margin-right:4px;flex-shrink:0}
+.pro-idx button{flex-shrink:0;border:1px solid var(--border);background:var(--card);color:var(--t2);font:600 12px Inter,sans-serif;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.pro-idx button:hover{color:var(--t1);border-color:var(--bh)}
+.pro-idx button.on{color:#fff;background:var(--accent);border-color:transparent}
+body[data-prod="caixa"] .pro-idx button.on{background:#0ea5e9}
+.filter-bar{padding:14px 20px;margin-bottom:16px;transition:padding .2s}
+.filter-bar .filter-header{margin-bottom:0}
+.filter-bar .active-filters{margin-top:0}
+.filter-bar.fb-aberto{padding:20px}
+.filter-bar.fb-aberto .filter-header{margin-bottom:16px}
+.filter-bar.fb-aberto .active-filters{margin-top:14px}
+.filter-bar:not(.fb-aberto) .filter-grid,.filter-bar:not(.fb-aberto) .filter-apply{display:none}
+.filter-bar:not(.fb-aberto){display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.filter-bar:not(.fb-aberto) .filter-header{order:1;flex:1;min-width:0}
+.filter-bar:not(.fb-aberto) .active-filters{order:0}
+.filter-bar:not(.fb-aberto) .filter-title{display:none}
+.filter-bar:not(.fb-aberto) .filter-actions{margin-left:auto}
+.fb-tog{padding:8px 14px;border-radius:10px;border:1px solid var(--bh);background:transparent;color:var(--t1);font:600 12px Inter,sans-serif;cursor:pointer}
+.fb-tog:hover{background:var(--track-bg)}
+.pro-mais{display:block;width:100%;margin-top:10px;padding:9px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--t2);font:600 12px Inter,sans-serif;cursor:pointer}
+.pro-mais:hover{color:var(--t1);border-color:var(--bh)}
+.pro-clip:not(.pro-open) .pro-oc{display:none!important}
+.donut-legend .pro-mais{width:auto;display:inline-block;margin:0;padding:3px 10px}
+.kpi-v.kpi-v-sm{font-size:22px;letter-spacing:-1px}
+@media(min-width:768px){.kpi-v.kpi-v-sm{font-size:30px}}
+@media(min-width:900px){.g2>.card:last-child:nth-child(odd){grid-column:1/-1}}
+.pro-rapida{margin-top:8px}
 </style>
 </head>
 <body data-prod="pro">
@@ -438,7 +481,7 @@ body[data-prod="caixa"] .tab-btn.active{background:linear-gradient(135deg,#0ea5e
 <button class="tab-btn" data-prod="caixa" data-tab="pesqac" onclick="switchTab('pesqac',this)">🔎 Check-in e Persona</button>
 </nav>
 <div class="filter-bar">
-<div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
+<div class="filter-header"><span class="filter-title">🔍 Filtros</span><div class="filter-actions"><button class="filter-clear" onclick="resetFilters()">Limpar</button><button class="fb-tog" id="fbTog" type="button" onclick="fbToggle()">🔍 Filtros ▾</button><button class="filter-apply" onclick="applyFilters()">Aplicar</button></div></div>
 <div class="filter-grid">
 <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurma"></div></div>
 <div class="filter-group"><label class="filter-label">Arrematou Imóvel</label><div class="ms-wrap" id="fTipoAcesso"></div></div>
@@ -448,6 +491,7 @@ body[data-prod="caixa"] .tab-btn.active{background:linear-gradient(135deg,#0ea5e
 </div>
 <div class="active-filters" id="tagsArea"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
 </div>
+<div class="pro-idx" id="proIdx" style="display:none"></div>
 <div class="tab-content active" id="tab-geral"><div id="cGeral"></div></div>
 <div class="tab-content" id="tab-engajamento"><div id="cEng"></div></div>
 <div class="tab-content" id="tab-atendimento"><div id="cAtend"></div></div>
@@ -750,6 +794,9 @@ let rows=AR.filter(r=>{
 if(ft.length)rows=rows.filter(r=>ft.includes(normTurma(r)));
 return rows;}
 
+var ARR_ANO=null;
+function arrSetAno(y){ARR_ANO=y;var sy=window.scrollY;applyFilters();window.scrollTo(0,sy);}
+function arrAnoPills(anos,sel){return '<div class="pq-pills ano-pills">'+anos.map(function(y){return '<button class="pq-pill'+(sel===y?' on':'')+'" onclick="arrSetAno(\''+y+'\')">'+y+'</button>';}).join('')+'<button class="pq-pill'+(sel==='todos'?' on':'')+'" onclick="arrSetAno(\'todos\')">Todos os anos</button></div>';}
 function applyFilters(){const rows=getFC(),tags=[];getMS('fTurma').forEach(v=>tags.push(v));getMS('fTipoAcesso').forEach(v=>tags.push(v));getMS('fFunil').forEach(v=>tags.push(v));getMS('fStatus').forEach(v=>tags.push('Mentoria: '+v));if(document.getElementById('fDe').value)tags.push('De: '+document.getElementById('fDe').value);if(document.getElementById('fAte').value)tags.push('Até: '+document.getElementById('fAte').value);const a=document.getElementById('tagsArea');a.innerHTML=tags.length?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>':'<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(rows);}
 function resetFilters(){document.querySelectorAll('.ms-option.selected').forEach(o=>o.classList.remove('selected'));document.querySelectorAll('.ms-trigger').forEach(t=>t.innerHTML='Todos');document.querySelectorAll('.filter-date').forEach(d=>d.value='');document.getElementById('tagsArea').innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';renderAll(CS);}
 
@@ -1331,8 +1378,15 @@ function renderAll(cs){
     byMonth[k].cnt++;
     if(r.valorArrematado>0){byMonth[k].val+=r.valorArrematado;byMonth[k].vals.push(r.valorArrematado);}
   });
-  const mKeys=Object.keys(byMonth).sort();
-  if(mKeys.length){
+  const mKeysAll=Object.keys(byMonth).sort();
+  // Anos disponíveis: saem do próprio dado (2027 aparece sozinho quando tiver a 1ª arrematação)
+  const _anosSet=new Set();arrV.forEach(r=>{if(r.dtArremate&&!(r.nome||'').toLowerCase().includes('grupo'))_anosSet.add(String(new Date(r.dtArremate).getFullYear()));});
+  const _anos=[..._anosSet].sort();
+  const _anoR=(ARR_ANO&&(ARR_ANO==='todos'||_anosSet.has(ARR_ANO)))?ARR_ANO:(_anos[_anos.length-1]||'todos');
+  const mKeys=_anoR==='todos'?mKeysAll:mKeysAll.filter(k=>k.slice(0,4)===_anoR);
+  a+='<div class="ano-bar"><span class="pq-lbl">Ano</span>'+arrAnoPills(_anos,_anoR)+'<span class="ano-nota">vale para os cartões mensais e para o mapa Turma × Mês</span></div>';
+  if(mKeysAll.length){
+    if(!mKeys.length)a+='<div class="pq-empty" style="padding:24px">Os cartões mensais começam em set/2025. Para '+_anoR+', veja o mapa Turma × Mês logo abaixo.</div>';
     a+='<div class="month-grid">';
     mKeys.forEach(k=>{
       const [y,m]=k.split('-');const mn=monthNames[parseInt(m)]+'/'+y;
@@ -1345,8 +1399,8 @@ function renderAll(cs){
     const totalMV=mKeys.reduce((s,k)=>s+byMonth[k].val,0);
     const allVals=mKeys.flatMap(k=>byMonth[k].vals);
     const avgAll=allVals.length?totalMV/allVals.length:0;
-    a+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
-    a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total Período</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+fN(totalMC)+'</div></div>';
+    a+='<div style="display:'+(mKeys.length?'flex':'none')+';gap:20px;flex-wrap:wrap;margin-top:16px;justify-content:center">';
+    a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Total '+(_anoR==='todos'?'Período':_anoR)+'</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+fN(totalMC)+'</div></div>';
     a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Volume Total</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+fR(totalMV)+'</div></div>';
     a+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 24px;text-align:center"><div style="font-size:13px;color:var(--t3)">Média por Imóvel</div><div style="font-size:28px;font-weight:700;font-family:JetBrains Mono;color:var(--gold)">'+fR(avgAll)+'</div></div>';
     a+='</div>';
@@ -1367,19 +1421,28 @@ function renderAll(cs){
     // Coletar todos os meses com dados (sem filtro Set/25)
     const allMonths=new Set();
     Object.values(tmData).forEach(tm=>{Object.keys(tm).forEach(k=>allMonths.add(k));});
-    const allMKeys=[...allMonths].sort();
+    const allMKeysT=[...allMonths].sort();
+    const allMKeys=_anoR==='todos'?allMKeysT:allMKeysT.filter(k=>k.slice(0,4)===_anoR);
+    const _antes=_anoR!=='todos'&&allMKeysT.some(k=>k.slice(0,4)<_anoR);
     // Turmas T12+ dinâmico (inclui T19, T20, etc. automaticamente)
     const tmT=Object.keys(tmData).sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
-    if(tmT.length&&allMKeys.length){
-      a+='<div class="card" style="margin-top:20px;overflow-x:auto"><h3>📈 % Arrematação por Turma × Mês</h3><div class="d">Alunos únicos que arremataram / total da turma — evolução mensal</div>';
-      a+='<table style="width:100%;border-collapse:separate;border-spacing:4px;margin-top:16px;font-family:JetBrains Mono;font-size:13px">';
-      a+='<tr><th style="text-align:left;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">TURMA</th>';
+    if(tmT.length&&allMKeysT.length){
+      a+='<div class="card tm-card" style="margin-top:20px"><div class="tm-head"><div><h3>📈 % Arrematação por Turma × Mês</h3><div class="d" style="margin-bottom:0">Alunos únicos que arremataram ÷ total da turma, mês a mês'+(_anoR==='todos'?'':' de '+_anoR)+'</div></div>'+arrAnoPills(_anos,_anoR)+'</div>';
+      a+='<div class="tm-wrap"><table class="tm-tb'+(_anoR==='todos'?' tm-all':'')+'" style="width:100%;border-collapse:separate;border-spacing:4px;margin-top:16px;font-family:JetBrains Mono;font-size:13px">';
+      a+='<tr><th class="tm-fix" style="text-align:left;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">TURMA</th>';
+      if(_antes)a+='<th style="text-align:center;padding:8px 6px;color:var(--t3);font-size:11px;font-weight:600">ATÉ '+(parseInt(_anoR)-1)+'</th>';
       allMKeys.forEach(k=>{const [y,m]=k.split('-');a+='<th style="text-align:center;padding:8px 6px;color:var(--t3);font-size:11px;font-weight:600">'+monthNames[parseInt(m)]+'/'+y.slice(2)+'</th>';});
       a+='<th style="text-align:center;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600">ACUM.</th></tr>';
       tmT.forEach(t=>{
         const tt=turmaC[t]||0;if(!tt)return;
-        a+='<tr><td style="padding:8px 12px;font-weight:700;color:var(--t1);white-space:nowrap">'+t+' <span style="font-weight:400;color:var(--t3);font-size:11px">('+fN(tt)+')</span></td>';
+        a+='<tr><td class="tm-fix" style="padding:8px 12px;font-weight:700;color:var(--t1);white-space:nowrap">'+t+' <span style="font-weight:400;color:var(--t3);font-size:11px">('+fN(tt)+')</span></td>';
         let acumSet=new Set();
+        if(_antes){
+          allMKeysT.forEach(k=>{if(k.slice(0,4)<_anoR&&tmData[t]&&tmData[t][k])tmData[t][k].forEach(n=>acumSet.add(n));});
+          const pA=rd(acumSet.size/tt*100);
+          const tipA='<div class=tt-title>'+t+' · até '+(parseInt(_anoR)-1)+'</div><div class=tt-row><span class=tt-label>Alunos únicos:</span><span class=tt-value>'+acumSet.size+'</span></div><div class=tt-row><span class=tt-label>Total turma:</span><span class=tt-value>'+fN(tt)+'</span></div><div class=tt-row><span class=tt-label>% da turma:</span><span class=tt-value>'+fP(pA)+'</span></div>';
+          a+='<td style="text-align:center;padding:8px 6px;border-radius:8px;border:1px dashed var(--border);color:'+(pA>0?'var(--t2)':'var(--t3)')+';cursor:pointer" onmouseenter="showTip(event,\''+tipA+'\')" onmousemove="showTip(event,\''+tipA+'\')" onmouseleave="hideTip()">'+(pA>0?fP(pA):'-')+'</td>';
+        }
         allMKeys.forEach(k=>{
           const alunos=tmData[t]&&tmData[t][k]?tmData[t][k]:new Set();
           alunos.forEach(n=>acumSet.add(n));
@@ -1394,7 +1457,7 @@ function renderAll(cs){
         const acumTip='<div class=tt-title>'+t+' — Acumulado</div><div class=tt-row><span class=tt-label>Alunos únicos:</span><span class=tt-value>'+acumSet.size+'</span></div><div class=tt-row><span class=tt-label>Total turma:</span><span class=tt-value>'+fN(tt)+'</span></div><div class=tt-row><span class=tt-label>% da turma:</span><span class=tt-value>'+fP(acumPct)+'</span></div>';
         a+='<td style="text-align:center;padding:8px 12px;background:'+acumBg+';border-radius:8px;color:var(--t1);font-weight:700;cursor:pointer" onmouseenter="showTip(event,\''+acumTip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+acumTip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">'+fP(acumPct)+'</td></tr>';
       });
-      a+='</table></div>';
+      a+='</table></div></div>';
     }
   }
 
@@ -3065,5 +3128,88 @@ function acHtmlVoz(S){
   if(L2.length>80)h+='<div class="pq-note" style="margin-top:10px">Mostrando as 80 respostas mais recentes de '+fN(L2.length)+'.</div>';
   return h;
 }
+
+/* ============================================================
+   CAMADA VISUAL · não altera nenhum dado, só reorganiza o que já foi desenhado:
+   índice de seções, filtros recolhidos, insights no topo, listas longas recolhidas.
+   ============================================================ */
+var PRO_IDS=['cGeral','cEng','cAtend','cArr','cRenov','cNPS','cDet'];
+var _proOcupado=false,_proT=null;
+function fbToggle(){
+  var fb=document.querySelector('.filter-bar');if(!fb)return;
+  var ab=fb.classList.toggle('fb-aberto');
+  var b=document.getElementById('fbTog');if(b)b.textContent=ab?'Recolher ▴':'🔍 Filtros ▾';
+}
+function proMais(btn){
+  var box=btn.closest('.pro-clip');if(!box)return;
+  var ab=box.classList.toggle('pro-open');
+  btn.textContent=ab?'Mostrar menos ▴':btn.getAttribute('data-l');
+}
+function proRecolher(box,itens,manter,rotulo,ultimos){
+  if(box.getAttribute('data-clip')||itens.length<=manter+2)return;
+  box.setAttribute('data-clip','1');box.classList.add('pro-clip');
+  itens.forEach(function(r,i){var oculta=ultimos?i<itens.length-manter:i>=manter;if(oculta)r.classList.add('pro-oc');});
+  var b=document.createElement('button');b.className='pro-mais';b.type='button';
+  var l=rotulo(itens.length);b.setAttribute('data-l',l);b.textContent=l;
+  b.onclick=function(ev){ev.stopPropagation();proMais(b);};
+  box.appendChild(b);
+}
+function proPolirEl(el){
+  // 1) Insights sobem para logo depois dos indicadores (leitura rápida primeiro)
+  var k=el.querySelector('.kpis');
+  if(k){
+    Array.prototype.slice.call(k.parentNode.children).forEach(function(s){
+      if(!s.classList||!s.classList.contains('sec')||s.getAttribute('data-movido'))return;
+      if(!/insights/i.test(s.textContent))return;
+      var g=s.nextElementSibling;if(!g||!g.classList.contains('ins-g'))return;
+      s.setAttribute('data-movido','1');s.classList.add('pro-rapida');
+      k.parentNode.insertBefore(s,k.nextSibling);k.parentNode.insertBefore(g,s.nextSibling);
+    });
+  }
+  // 2) Listas longas: mostra as principais e guarda o resto num "ver todas"
+  el.querySelectorAll('.hbar-area').forEach(function(a){
+    var rs=Array.prototype.slice.call(a.querySelectorAll(':scope > .hbar-row'));
+    var turma=rs.length&&/^\s*T\d+/.test(rs[0].textContent);
+    if(turma)return; // listas por turma ficam inteiras: as turmas antigas são as maiores
+    proRecolher(a,rs,10,function(n){return 'Ver todas ('+n+') ▾';},false);
+  });
+  el.querySelectorAll('.card').forEach(function(c){
+    var rs=Array.prototype.slice.call(c.querySelectorAll(':scope > .ft-row'));
+    var turma=rs.length&&/^\s*T\d+/.test(rs[0].textContent);
+    proRecolher(c,rs,10,function(n){return turma?'Ver todas as '+n+' turmas ▾':'Ver todas ('+n+') ▾';},turma);
+  });
+  el.querySelectorAll('.donut-legend').forEach(function(lg){
+    var sp=Array.prototype.slice.call(lg.querySelectorAll(':scope > span'));
+    proRecolher(lg,sp,8,function(n){return '+ '+(n-8)+' categorias';},false);
+  });
+  // 3) Números compridos não quebram o cartão
+  el.querySelectorAll('.kpi-v').forEach(function(v){if(v.textContent.trim().length>=12)v.classList.add('kpi-v-sm');});
+}
+function proIndice(){
+  var idx=document.getElementById('proIdx');if(!idx)return;
+  var tab=document.querySelector('.tab-content.active');
+  var secs=tab?Array.prototype.slice.call(tab.querySelectorAll('.sec')).filter(function(s){return s.offsetParent;}):[];
+  if(secs.length<3){idx.style.display='none';idx.innerHTML='';return;}
+  var sig=secs.map(function(s){return s.textContent;}).join('|');
+  if(idx.getAttribute('data-sig')===sig&&idx.style.display!=='none')return;
+  idx.setAttribute('data-sig',sig);idx.style.display='flex';idx.innerHTML='<span class="pro-idx-l">Ir para</span>';
+  secs.forEach(function(s){
+    var t=s.textContent.replace(/\?\s*$/,'').replace(/\s+/g,' ').trim();if(t.length>34)t=t.slice(0,32)+'…';
+    var b=document.createElement('button');b.type='button';b.textContent=t;
+    b.onclick=function(){s.scrollIntoView({behavior:'smooth',block:'start'});idx.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');};
+    idx.appendChild(b);
+  });
+}
+function proPolir(){
+  if(_proOcupado)return;_proOcupado=true;
+  try{PRO_IDS.forEach(function(id){var el=document.getElementById(id);if(el){try{proPolirEl(el);}catch(e){console.warn('polir '+id,e);}}});proIndice();}
+  finally{setTimeout(function(){_proOcupado=false;},0);}
+}
+function proAgendar(){clearTimeout(_proT);_proT=setTimeout(proPolir,80);}
+(function(){
+  var alvo=document.getElementById('mainWrap');if(!alvo||!window.MutationObserver)return;
+  new MutationObserver(function(){if(!_proOcupado)proAgendar();}).observe(alvo,{childList:true,subtree:true,attributes:true,attributeFilter:['class','data-prod']});
+  proAgendar();
+})();
 
 </script></body></html>
