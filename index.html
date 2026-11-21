@@ -2753,22 +2753,22 @@ const AC_CLIENTE='9bdd7112-bae1-47c0-b341-da4cd6202d32';
 var AC_REGUA=null,AC_ERRO='',AC_CARREGANDO=false,AC_CRUZ_KEY='',AC_VOZ={et:'todas',tema:'todos'};
 var _prodTab={pro:'geral',caixa:'acexec'};
 var AC_ETAPAS=[
-  {k:'M1',tps:['M1A','M1B'],ic:'👋',t:'Boas-vindas',q:'3º dia útil após a triagem, às 8h',o:'Apresentar o time de Sucesso do Cliente, agradecer ou cobrar o check-in e mostrar o portal.'},
-  {k:'M2',tps:['M2'],ic:'⏳',t:'30 dias',q:'30 dias após a triagem, se o contrato ainda não saiu',o:'Tranquilizar: o processo segue andando. Ouvir como está o atendimento.'},
+  {k:'M1',tps:['M1A','M1B'],ic:'👋',t:'Boas-vindas',q:'3º dia útil após a triagem, pela manhã',o:'Apresentar o time de Sucesso do Cliente. Quem já fez o check-in recebe o agradecimento e o convite para conhecer o portal; quem não fez recebe o link para preencher.'},
+  {k:'M2',tps:['M2'],ic:'⏳',t:'30 dias',q:'30 dias após a triagem, se o contrato ainda não saiu e o processo não chegou à reta final',o:'Tranquilizar: o processo segue andando. Ouvir como está o atendimento.'},
   {k:'M3',tps:['M3'],ic:'✍️',t:'Contrato assinado',q:'Assim que o contrato fica finalizado',o:'Comemorar a conquista e colher a primeira reação do cliente.'},
-  {k:'M4',tps:['M4'],ic:'💬',t:'Experiência',q:'30 dias após o contrato',o:'Ouvir a experiência: retorno do time, inseguranças e o que poderia ser diferente.'},
-  {k:'M5',tps:['M5A','M5B'],ic:'⭐',t:'Prova social',q:'Na etapa final ou 60 dias após o contrato',o:'Pedir um depoimento sobre o acompanhamento (com a nota, se o processo já chegou ao fim).'},
-  {k:'M6',tps:['M6'],ic:'🏁',t:'NPS de encerramento',q:'Quando o processo chega ao fim',o:'Nota de 0 a 10 e o motivo, para fechar o acompanhamento.'}
+  {k:'M4',tps:['M4'],ic:'💬',t:'Experiência',q:'30 dias após o contrato',o:'Ouvir a experiência: o que o cliente mais valoriza no acompanhamento e o que poderia ficar ainda melhor.'},
+  {k:'M5',tps:['M5A','M5B'],ic:'⭐',t:'Prova social',q:'60 dias após o contrato, ou antes, se o processo chegar à reta final',o:'Ouvir como o cliente descreve o acompanhamento. Se o processo já está na reta final, a mensagem pede a nota de 0 a 10 e encerra a régua.'},
+  {k:'M6',tps:['M6'],ic:'🏁',t:'NPS de encerramento',q:'Quando o processo chega à reta final, para quem já recebeu a mensagem de 60 dias',o:'Nota de 0 a 10 e o que mais marcou na jornada, para fechar o acompanhamento.'}
 ];
 var AC_TP={
   M1A:['M1A · Boas-vindas, check-in feito','3º dia útil após a triagem, com o formulário preenchido'],
   M1B:['M1B · Boas-vindas, sem check-in','3º dia útil após a triagem, sem o formulário preenchido'],
-  M2:['M2 · 30 dias','30 dias após a triagem, se o contrato ainda não saiu'],
+  M2:['M2 · 30 dias','30 dias após a triagem, se o contrato ainda não saiu e o processo não chegou à reta final'],
   M3:['M3 · Contrato assinado','Assim que o contrato fica finalizado'],
   M4:['M4 · Experiência','30 dias após o contrato'],
-  M5A:['M5A · Nota e prova social','Processo chega ao fim antes de 60 dias do contrato'],
+  M5A:['M5A · Nota e prova social','Processo chega à reta final antes da mensagem de 60 dias. Encerra a régua'],
   M5B:['M5B · Prova social','60 dias após o contrato, processo ainda em andamento'],
-  M6:['M6 · NPS de encerramento','Processo chega ao fim depois da M5B']
+  M6:['M6 · NPS de encerramento','Processo chega à reta final depois da M5B. Encerra a régua']
 };
 var AC_TEMAS=[
   ['Portal e aplicativo','var(--sky)',/\bportal\b|\bsite\b|\bapp\b|aplicativo|\bsenha\b|\blogin\b|negocia[çc][õo]es|meu arrematador/i],
@@ -2954,7 +2954,7 @@ function acAviso(){
   return '<div class="ac-warn">Não foi possível carregar a régua de acompanhamento ('+acEsc(AC_ERRO)+'). <a onclick="acCarregar()">Tentar de novo</a></div>';
 }
 function acJornada(S){
-  var h='<div class="ac-jor"><div class="ac-st ac-st-in"><div class="ac-st-ic">🏠</div><div class="ac-st-t">Arrematou</div><div class="ac-st-q">Imóvel entra na triagem do Arrematador Caixa e o cliente preenche o check-in.</div></div>';
+  var h='<div class="ac-jor"><div class="ac-st ac-st-in"><div class="ac-st-ic">🏠</div><div class="ac-st-t">Arrematou</div><div class="ac-st-q">Imóvel entra na triagem do Arrematador Caixa e o cliente recebe o pedido do check-in.</div></div>';
   AC_ETAPAS.forEach(function(e){
     var env=0,resp=0;e.tps.forEach(function(tp){var p=S.porTp[tp];if(p){env+=p.env;resp+=p.resp;}});
     var p=acPct(resp,env);
@@ -3029,7 +3029,7 @@ function acHtmlExec(S,FS){
   if(S.ok&&AC_ERRO)h+=acAviso();
   // Entrada por mês + dores
   h+='<div class="sec">📈 Entrada de imóveis por mês</div>';
-  h+='<div class="card"><h3>Check-ins recebidos por mês</h3><div class="d">Cada formulário é um imóvel arrematado que entrou no pós-arrematação.</div>'+(FS.n?acColunasMes(FS):'<div class="pq-empty">Sem dados do formulário ainda.</div>')+'</div>';
+  h+='<div class="card"><h3>Check-ins recebidos por mês</h3><div class="d">Cada resposta é o check-in de um imóvel arrematado. Quem ainda não preencheu é cobrado na boas-vindas (M1B).</div>'+(FS.n?acColunasMes(FS):'<div class="pq-empty">Sem dados do formulário ainda.</div>')+'</div>';
   h+='<div class="sec">🩺 Dores do cliente</div><div class="pq-grid">';
   var ins=acOrd(FS.inseg).slice(0,6);
   h+='<div class="pq-c"><div class="pq-c-h"><div class="pq-c-q">O que deixa o cliente inseguro com o imóvel</div><span class="pq-c-n">'+fN(FS.insegN)+' resp.</span></div>'+acBarras(ins,FS.insegN,'var(--red)')+'<div style="font-size:11px;color:var(--t3);margin-top:6px">Pergunta do check-in, múltipla escolha: o % é sobre quem respondeu.</div></div>';
@@ -3045,7 +3045,7 @@ function acHtmlExec(S,FS){
   if(S.ok&&tm.length){var t0=tm.filter(function(x){return x[0]!=='Só agradeceu ou confirmou'&&x[0]!=='Outros assuntos';})[0];if(t0)L.push(acIns(t0[0]==='Elogio ao acompanhamento'?'ok':'w','Assunto mais citado nas respostas','"'+t0[0]+'" aparece em '+fN(t0[1])+' de '+fN(S.nResp)+' respostas ('+acFP(acPct(t0[1],S.nResp))+').'));}
   if(FS.p6N)L.push(acIns('ok','Recompra',acFP(acPct(FS.p6,FS.p6N))+' pretendem arrematar outro imóvel nos próximos 6 meses ('+fN(FS.p6)+' de '+fN(FS.p6N)+' respostas).'));
   if(FS.desocN)L.push(acIns('ok','Desocupação',acFP(acPct(FS.desoc,FS.desocN))+' querem que o Arrematador Caixa assuma a desocupação ('+fN(FS.desoc)+' de '+fN(FS.desocN)+').'));
-  if(S.ok){var fut=AC_ETAPAS.filter(function(e){return !e.tps.some(function(tp){return S.porTp[tp];});}).map(function(e){return e.t;});if(fut.length)L.push(acIns('ok','Próximas etapas da régua','Ainda sem disparo: '+fut.join(', ')+'. Elas dependem do prazo de cada negócio e entram aqui sozinhas quando começarem.'));}
+  if(S.ok){var fut=AC_ETAPAS.filter(function(e){return !e.tps.some(function(tp){return S.porTp[tp];});}).map(function(e){return e.t;});if(fut.length)L.push(acIns('ok','Próximas etapas da régua','Ainda sem disparo: '+fut.join(', ')+'. Elas dependem do prazo e da etapa de cada negócio e entram aqui sozinhas quando começarem.'));}
   if(L.length)h+='<div class="sec">💡 Leituras</div><div class="ins-g">'+L.join('')+'</div>';
   return h;
 }
@@ -3097,7 +3097,7 @@ function acHtmlRegua(S,FS){
   if(S.notas.length){
     var pr=S.notas.filter(function(n){return n>=9;}).length,de=S.notas.filter(function(n){return n<=6;}).length,nps=Math.round((pr-de)/S.notas.length*100);
     h+='<div class="kpis" style="border-top:none;padding-top:0">'+kpi('linear-gradient(90deg,var(--green),var(--teal))','NPS',String(nps),fN(S.notas.length)+' notas'+(S.notas.length<30?' · amostra pequena':''),'var(--green)')+kpi('linear-gradient(90deg,var(--teal),var(--sky))','Nota média',(Math.round(avg(S.notas)*10)/10).toString().replace('.',','),'de 0 a 10','var(--teal)')+kpi('linear-gradient(90deg,var(--accent),var(--a2))','Promotores',fN(pr),'notas 9 e 10','var(--a2)')+kpi('linear-gradient(90deg,var(--red),var(--pink))','Detratores',fN(de),'notas de 0 a 6','var(--red)')+'</div>';
-  }else h+='<div class="card"><div class="ac-vazio"><div style="font-size:30px">🏁</div><div><b>Ainda sem notas.</b><br>O NPS é pedido quando o processo do cliente chega à etapa final (mensagens M5A e M6). Os primeiros negócios acompanhados pela régua ainda estão em andamento, e o resultado aparece aqui assim que as notas começarem a chegar.</div></div></div>';
+  }else h+='<div class="card"><div class="ac-vazio"><div style="font-size:30px">🏁</div><div><b>Ainda sem notas.</b><br>O NPS é pedido quando o processo do cliente chega à reta final, a partir da troca de titularidade (mensagens M5A e M6). Os primeiros negócios acompanhados pela régua ainda estão em andamento, e o resultado aparece aqui assim que as notas começarem a chegar.</div></div></div>';
   return h;
 }
 function acVozEt(k){AC_VOZ.et=k;var e=document.getElementById('cAcVoz');if(e)e.innerHTML=acHtmlVoz(acStats());}

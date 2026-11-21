@@ -7,23 +7,32 @@ CREATE OR REPLACE FUNCTION public.cs_ac_regua(p_cliente_id uuid, p_inicio timest
  SET search_path TO 'public'
  SET statement_timeout TO '25s'
 AS $function$
-  WITH bruto AS (
+  WITH bruto0 AS (
+    -- Trechos conferidos com os templates arrem_* aprovados na Meta (leitura de 31/10/2026).
+    -- A nota privada do disparo é só o corpo do template com o primeiro nome, por isso o filtro pela saudação.
     SELECT m.chatwoot_conversation_id AS cid, m.message_created_at AS ts,
       CASE
-        WHEN m.content ILIKE '%Vi que o seu check-in%' OR m.content ILIKE '%já preencheu o ch%' THEN 'M1A'
-        WHEN m.content ILIKE '%acompanho você em toda a pós-arrematação%' OR m.content ILIKE '%acompanhar você durante o pós-arrematação%' THEN 'M1B'
-        WHEN m.content ILIKE '%segue em andamento com a nossa equipe. As próximas etapas%' THEN 'M2'
-        WHEN m.content ILIKE '%Contrato assinado!%' OR m.content ILIKE '%contrato do seu imóvel foi assinado%' THEN 'M3'
-        WHEN m.content ILIKE '%Já faz um mês que o contrato%' THEN 'M4'
-        WHEN m.content ILIKE '%chegou à etapa final%' AND m.content ILIKE '%mantendo você informado%' THEN 'M6'
-        WHEN m.content ILIKE '%chegou à etapa final%' THEN 'M5A'
+        WHEN m.content ILIKE '%Vi que o seu check-in%' THEN 'M1A'
+        WHEN m.content ILIKE '%acompanho você em toda a pós-arrematação%' THEN 'M1B'
+        WHEN m.content ILIKE '%Passando para te dar notícia%' AND m.content ILIKE '%segue andando com a nossa equipe%' THEN 'M2'
+        WHEN m.content ILIKE '%Contrato assinado!%' THEN 'M3'
+        WHEN m.content ILIKE '%Já faz um mês que o seu contrato%' THEN 'M4'
         WHEN m.content ILIKE '%avançou bastante desde a assinatura%' THEN 'M5B'
+        WHEN m.content ILIKE '%chegou na reta final%' THEN 'FIM'
       END AS tp
     FROM mensagens_chatwoot m
     WHERE m.cliente_id = p_cliente_id AND m.private = true AND m.message_type = 1
       AND m.message_created_at >= p_inicio
-      AND m.content NOT ILIKE '[HANDOFF]%'
-      AND (m.content ILIKE '%pós-arrematação%' OR m.content ILIKE '%Contrato assinado!%')
+      AND m.content ~* '^\s*(Olá|Oiêeee|Ei), '
+  ),
+  bruto AS (
+    -- M5A e M6 têm o mesmo texto de propósito. A M6 só sai para quem já recebeu a M5B,
+    -- então a mensagem de reta final vira M6 quando há M5B anterior na mesma conversa, e M5A nos demais casos.
+    SELECT cid, ts,
+      CASE WHEN tp = 'FIM' THEN
+        CASE WHEN COALESCE(bool_or(tp = 'M5B') OVER (PARTITION BY cid ORDER BY ts ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), false) THEN 'M6' ELSE 'M5A' END
+      ELSE tp END AS tp
+    FROM bruto0 WHERE tp IS NOT NULL
   ),
   ag AS (
     SELECT cid, tp, min(ts) AS ts, count(*) AS negocios
